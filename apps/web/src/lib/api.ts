@@ -7,11 +7,14 @@ export class ApiError extends Error {
   }
 }
 
+/** Deployed API. Local dev uses a relative path so the Vite proxy forwards to localhost:3000. */
+const API_URL = import.meta.env.DEV ? '' : 'https://grind-c1o3.onrender.com';
+
 /** Calls the Grind API and returns the parsed JSON body. Throws ApiError with a readable message. */
 export async function api<T>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`/api${path}`, {
+    res = await fetch(`${API_URL}/api${path}`, {
       method: options.method ?? 'GET',
       credentials: 'include',
       headers: options.body === undefined ? undefined : { 'Content-Type': 'application/json' },
