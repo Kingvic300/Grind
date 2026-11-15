@@ -7,14 +7,19 @@ import { AuthService } from './auth.service';
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
+// The web app and the API are on different sites in production, so the browser only sends
+// the cookie with SameSite=None, which requires Secure. Local dev is same-site over HTTP.
+const COOKIE_BASE = {
+  httpOnly: true,
+  sameSite: IS_PRODUCTION ? 'none' : 'lax',
+  secure: IS_PRODUCTION,
+  path: '/',
+} as const;
+
 function setSessionCookie(res: Response, token: string) {
-  res.cookie(AUTH_COOKIE, token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: THIRTY_DAYS_MS,
-    path: '/',
-  });
+  res.cookie(AUTH_COOKIE, token, { ...COOKIE_BASE, maxAge: THIRTY_DAYS_MS });
 }
 
 @Controller('auth')
@@ -41,7 +46,7 @@ export class AuthController {
   @HttpCode(204)
   @Post('logout')
   logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie(AUTH_COOKIE, { path: '/' });
+    res.clearCookie(AUTH_COOKIE, COOKIE_BASE);
   }
 
   @UseGuards(AuthGuard)
