@@ -61,7 +61,7 @@ export function AboutPage() {
       </section>
 
       <section className="section section-tint">
-        <div className="mkt-wrap narrow">
+        <div className="mkt-wrap">
           <h2 className="faq-title">Questions people ask</h2>
           <Faq items={FAQ} />
         </div>

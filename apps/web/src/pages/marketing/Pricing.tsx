@@ -45,7 +45,7 @@ export function PricingPage() {
       </section>
 
       <section className="section">
-        <div className="mkt-wrap narrow">
+        <div className="mkt-wrap">
           <h2 className="faq-title">Pricing questions</h2>
           <Faq items={PRICING_FAQ} />
         </div>
