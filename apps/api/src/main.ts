@@ -10,7 +10,8 @@ async function bootstrap() {
   app.use(helmet());
   app.use(cookieParser());
   app.enableCors({
-    origin: process.env.WEB_ORIGIN ?? 'http://localhost:5173',
+    // Browsers send the origin without a trailing slash, so a pasted "https://site.app/" must not break the match.
+    origin: (process.env.WEB_ORIGIN ?? 'http://localhost:5173').trim().replace(/\/+$/, ''),
     credentials: true,
   });
   // whitelist strips unknown fields so clients cannot set columns like userId.
