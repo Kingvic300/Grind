@@ -1,0 +1,13 @@
+{
+  "name": "grind",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:migrate": "pnpm --filter @grind/api exec prisma migrate dev",
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
+  }
+}

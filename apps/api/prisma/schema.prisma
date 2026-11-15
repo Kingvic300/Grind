@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Status {
+  INTERESTED
+  REGISTERED
+  BUILDING
+  SUBMITTED
+  DONE
+}
+
+enum Format {
+  ONLINE
+  IN_PERSON
+  HYBRID
+}
+
+model User {
+  id             String      @id @default(cuid())
+  email          String      @unique
+  passwordHash   String
+  name           String
+  emailReminders Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  hackathons     Hackathon[]
+}
+
+model Hackathon {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Basics
+  name      String
+  organizer String?
+  url       String?
+  format    Format    @default(ONLINE)
+  location  String?
+  startDate DateTime?
+  endDate   DateTime?
+
+  // Status and deadlines
+  status               Status    @default(INTERESTED)
+  position             Float     @default(0)
+  registrationDeadline DateTime?
+  submissionDeadline   DateTime?
+
+  // Project and team
+  projectName        String?
+  projectDescription String?
+  techStack          String[]
+  teammates          String[]
+  repoUrl            String?
+  demoUrl            String?
+
+  // Results
+  won         Boolean @default(false)
+  placement   String?
+  prizeName   String?
+  prizeAmount Int?
+  notes       String?
+
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  reminders ReminderLog[]
+
+  @@index([userId, status])
+}
+
+// One row per reminder email sent, so a reminder is never sent twice.
+model ReminderLog {
+  id          String    @id @default(cuid())
+  hackathonId String
+  hackathon   Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  kind        String
+  sentAt      DateTime  @default(now())
+
+  @@unique([hackathonId, kind])
+}
