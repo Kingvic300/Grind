@@ -1,5 +1,5 @@
 /* Marketing site and auth pages. */
-.mkt-wrap { width: 100%; max-width: 1160px; margin: 0 auto; padding-inline: 24px; }
+.mkt-wrap { width: 100%; margin: 0 auto; padding-inline: clamp(24px, 4vw, 72px); }
 .narrow { max-width: 760px; }
 
 .mkt-nav { position: sticky; top: 0; z-index: 20; background: rgb(247 248 251 / 0.86); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
