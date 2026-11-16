@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useDeleteHackathon, useHackathons, useSaveHackathon, useSpaces } from '../lib/hooks';
 import { dateKey, toLocalInput } from '../lib/time';
 import { FORMATS, FORMAT_LABEL, STATUSES, STATUS_LABEL, type Format, type Hackathon, type HackathonInput, type Status } from '../lib/types';
+import { OpenSite } from './Bits';
 import { IconClose } from './Icons';
 import { Spinner } from './Loading';
 import { AssigneePicker, CommentsPanel, TasksPanel } from './TeamWork';
@@ -128,6 +129,7 @@ export function HackathonDrawer({ hackathon, onClose }: { hackathon: Hackathon |
       <form className="drawer-panel" onSubmit={submit} noValidate={false}>
         <header className="drawer-head">
           <h2 id="drawer-title">{hackathon ? 'Edit hackathon' : 'Add hackathon'}</h2>
+          {hackathon && <OpenSite h={hackathon} className="btn btn-quiet drawer-open" />}
           <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">
             <IconClose />
           </button>

@@ -1,3 +1,4 @@
+import { IconExternal } from './Icons';
 import { useNow } from '../lib/hooks';
 import { countdown } from '../lib/time';
 import { STATUS_LABEL, type Status } from '../lib/types';
@@ -27,5 +28,27 @@ export function MineToggle({ mine, onChange, count }: { mine: boolean; onChange:
         Assigned to me <b>{count}</b>
       </button>
     </div>
+  );
+}
+
+/** Where "Open" goes: the saved link, or a web search when no link is saved yet. */
+export function hackathonHref(h: { name: string; url: string | null }) {
+  if (h.url) return /^https?:\/\//i.test(h.url) ? h.url : `https://${h.url}`;
+  return `https://www.google.com/search?q=${encodeURIComponent(`${h.name} hackathon`)}`;
+}
+
+/** Opens the hackathon's site in a new tab. Stops the click so table rows do not also open the editor. */
+export function OpenSite({ h, className = 'open-site' }: { h: { name: string; url: string | null }; className?: string }) {
+  return (
+    <a
+      className={className}
+      href={hackathonHref(h)}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      title={h.url ? `Open ${h.name} site` : `No link saved. Search the web for ${h.name}`}
+    >
+      {h.url ? 'Open' : 'Find'}<IconExternal />
+    </a>
   );
 }

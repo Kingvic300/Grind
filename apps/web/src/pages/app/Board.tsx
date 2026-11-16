@@ -1,7 +1,7 @@
 import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { useState } from 'react';
 import { EmptyState, PageHead, useShell } from '../../components/AppShell';
-import { Countdown, MineToggle } from '../../components/Bits';
+import { Countdown, MineToggle, OpenSite } from '../../components/Bits';
 import { IconComment, IconTasks, IconTrophy } from '../../components/Icons';
 import { BoardSkeleton } from '../../components/Loading';
 import { Faces } from '../../components/TeamWork';
@@ -44,16 +44,20 @@ function CardBody({ h }: { h: Hackathon }) {
 function Card({ h, onOpen }: { h: Hackathon; onOpen: () => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: h.id });
   return (
-    <button
-      type="button"
-      ref={setNodeRef}
-      className={`card${isDragging ? ' is-dragging' : ''}`}
-      onClick={onOpen}
-      {...listeners}
-      {...attributes}
-    >
-      <CardBody h={h} />
-    </button>
+    // The link sits beside the card button, not inside it: a link inside a button is invalid HTML and would start a drag.
+    <div className="card-wrap">
+      <button
+        type="button"
+        ref={setNodeRef}
+        className={`card${isDragging ? ' is-dragging' : ''}`}
+        onClick={onOpen}
+        {...listeners}
+        {...attributes}
+      >
+        <CardBody h={h} />
+      </button>
+      {!isDragging && <OpenSite h={h} className="open-site card-open" />}
+    </div>
   );
 }
 

@@ -39,3 +39,4 @@ export const IconChevronDown = () => <Icon size={16}><path d="M6 9l6 6 6-6" /></
 export const IconTasks = () => <Icon size={15}><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" /></Icon>;
 export const IconComment = () => <Icon size={15}><path d="M5 5h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H10l-4 3v-3H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" /></Icon>;
 export const IconTrash = () => <Icon size={15}><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" /></Icon>;
+export const IconExternal = () => <Icon size={14}><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" /></Icon>;

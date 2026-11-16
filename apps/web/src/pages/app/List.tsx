@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { EmptyState, PageHead, useShell } from '../../components/AppShell';
-import { Countdown, MineToggle, StatusPill } from '../../components/Bits';
+import { Countdown, MineToggle, OpenSite, StatusPill } from '../../components/Bits';
 import { IconSearch, IconTrophy } from '../../components/Icons';
 import { ListSkeleton } from '../../components/Loading';
 import { Faces } from '../../components/TeamWork';
@@ -107,9 +107,12 @@ export function ListPage() {
                   {rows.map((h) => (
                     <tr key={h.id} onClick={() => openEditor(h)}>
                       <td>
-                        <button type="button" className="row-title" onClick={(e) => { e.stopPropagation(); openEditor(h); }}>
-                          {h.name}
-                        </button>
+                        <div className="row-head">
+                          <button type="button" className="row-title" onClick={(e) => { e.stopPropagation(); openEditor(h); }}>
+                            {h.name}
+                          </button>
+                          <OpenSite h={h} />
+                        </div>
                         <span className="row-sub">
                           {[h.organizer, FORMAT_LABEL[h.format], h.location].filter(Boolean).join(', ')}
                         </span>
