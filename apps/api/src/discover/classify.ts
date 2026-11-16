@@ -85,3 +85,25 @@ export function classify(text: string): { categories: Category[]; stack: string[
   const stack = STACK_RULES.filter(([, re]) => re.test(text)).map(([name]) => name);
   return { categories, stack };
 }
+
+type ListingFormat = 'ONLINE' | 'IN_PERSON' | 'HYBRID';
+
+// Phrases, not single words: "online" alone shows up in "online banking", "venue" in sponsor blurbs.
+const ONLINE_TEXT = /\b(fully online|100% online|online[- ]only|online (hackathon|event|competition|challenge|buildathon)|virtual (hackathon|event|competition|buildathon)|(held|hosted|takes? place|runs?|happening) (fully |entirely )?(online|virtually|remotely)|remote[- ](hackathon|event|first)|(participate|join|build|hack) (from anywhere|remotely|online)|open to (participants |builders )?worldwide)\b/i;
+const IN_PERSON_TEXT = /\b(in[- ]person|on[- ]site|onsite|offline (hackathon|event)|irl|physical (event|venue|location)|at the venue)\b/i;
+const HYBRID_TEXT = /\b(hybrid (hackathon|event|format|competition)|online and (in[- ]person|offline|on[- ]site)|(in[- ]person|offline|on[- ]site) and online|both online and)\b/i;
+
+/**
+ * Reads the event text for where it happens, since some sites leave the field blank
+ * (which the fetchers read as in person) or mark online events with an in-person final.
+ * Falls back to what the site said when the text does not say clearly.
+ */
+export function formatFromText(text: string, site: ListingFormat): ListingFormat {
+  if (HYBRID_TEXT.test(text)) return 'HYBRID';
+  const online = ONLINE_TEXT.test(text);
+  const inPerson = IN_PERSON_TEXT.test(text);
+  if (online && inPerson) return 'HYBRID';
+  if (online) return site === 'HYBRID' ? 'HYBRID' : 'ONLINE';
+  if (inPerson) return site === 'ONLINE' ? 'HYBRID' : site;
+  return site;
+}

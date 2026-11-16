@@ -1,4 +1,4 @@
-import { classify } from './classify';
+import { classify, formatFromText } from './classify';
 import { clean, get, type Listing, type RawListing } from './sources';
 
 const DESCRIPTION_CHARS = 600;
@@ -112,6 +112,7 @@ export async function enrich(raw: RawListing[], known: Map<string, string>): Pro
     const haystack = [h.name, h.organizer, ...h.tags, text.slice(0, CLASSIFY_CHARS)].filter(Boolean).join(' . ');
     const { categories, stack } = classify(haystack);
     const short = text.length > DESCRIPTION_CHARS ? `${text.slice(0, DESCRIPTION_CHARS).replace(/\s+\S*$/, '')}…` : text;
-    return { ...rest, description: clean(short), categories, stack };
+    const format = formatFromText([h.name, ...h.tags, text.slice(0, CLASSIFY_CHARS)].join(' . '), h.format);
+    return { ...rest, format, description: clean(short), categories, stack };
   });
 }

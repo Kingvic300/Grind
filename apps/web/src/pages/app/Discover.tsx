@@ -219,7 +219,7 @@ export function DiscoverPage() {
   }, [all]);
 
   // Every filter except the one being counted, so chip counts show what clicking would give.
-  const matches = (h: Listing, skip?: 'kind' | 'topics' | 'stacks' | 'sources') => {
+  const matches = (h: Listing, skip?: 'kind' | 'topics' | 'stacks' | 'sources' | 'format') => {
     if (showForYou && interests && !matchesInterests(h, interests)) return false;
     const q = search.trim().toLowerCase();
     if (q && ![h.name, h.organizer, h.location, h.description, ...h.tags, ...h.stack].some((v) => v?.toLowerCase().includes(q))) return false;
@@ -227,7 +227,7 @@ export function DiscoverPage() {
     if (skip !== 'topics' && topics.size && ![...topics].some((t) => h.categories.includes(t))) return false;
     if (skip !== 'stacks' && stacks.size && ![...stacks].some((t) => h.stack.includes(t))) return false;
     if (skip !== 'sources' && sources.size && !sources.has(h.source)) return false;
-    if (format !== 'ALL' && h.format !== format) return false;
+    if (skip !== 'format' && format !== 'ALL' && h.format !== format) return false;
     if (within !== 'any') {
       const close = nextClose(h, now);
       if (!close || close.at - now > Number(within) * DAY) return false;
@@ -270,7 +270,7 @@ export function DiscoverPage() {
   if (discover.isError) return <div className="page-error" role="alert">{discover.error.message}</div>;
 
   const failed = discover.data.sources.filter((s) => !s.ok);
-  const count = (pred: (h: Listing) => boolean, skip: 'kind' | 'topics' | 'stacks' | 'sources') =>
+  const count = (pred: (h: Listing) => boolean, skip: 'kind' | 'topics' | 'stacks' | 'sources' | 'format') =>
     all.filter((h) => matches(h, skip) && pred(h)).length;
   const shownStacks = showAllStack ? stackOptions : stackOptions.slice(0, STACK_PREVIEW);
 
@@ -331,6 +331,18 @@ export function DiscoverPage() {
           </div>
         </div>
 
+        <div className="filter-row">
+          <span className="filter-label">Where</span>
+          <div className="segmented" role="group" aria-label="Where">
+            {(['ALL', ...FORMATS] as (Format | 'ALL')[]).map((f) => (
+              <button type="button" key={f} className={format === f ? 'is-on' : ''} aria-pressed={format === f} onClick={() => setFormat(f)}>
+                {f === 'ALL' ? 'All' : FORMAT_LABEL[f]}{' '}
+                <b>{count((h) => f === 'ALL' || h.format === f, 'format')}</b>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <ChipRow
           label="Topic"
           options={TOPICS.filter((t) => all.some((h) => h.categories.includes(t)))}
@@ -372,13 +384,6 @@ export function DiscoverPage() {
             <span>Closes</span>
             <select id="discover-within" value={within} onChange={(e) => setWithin(e.target.value as Window)}>
               {WINDOWS.map((w) => <option key={w.value} value={w.value}>{w.label}</option>)}
-            </select>
-          </label>
-          <label className="sort">
-            <span>Format</span>
-            <select id="discover-format" value={format} onChange={(e) => setFormat(e.target.value as Format | 'ALL')}>
-              <option value="ALL">Any</option>
-              {FORMATS.map((f) => <option key={f} value={f}>{FORMAT_LABEL[f]}</option>)}
             </select>
           </label>
           <span className="spacer" />
