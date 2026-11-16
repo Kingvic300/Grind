@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Spinner } from '../../components/Loading';
 import { Logo } from '../../components/Logo';
 import { useAuthActions, useMe, useNow } from '../../lib/hooks';
 import { countdown } from '../../lib/time';
@@ -92,6 +93,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
           {error && <p className="form-error" role="alert">{error}</p>}
 
           <button type="submit" className="btn btn-accent btn-lg btn-block" disabled={busy}>
+            {busy && <Spinner />}
             {busy ? (signup ? 'Creating account' : 'Logging in') : signup ? 'Create account' : 'Log in'}
           </button>
 

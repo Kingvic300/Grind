@@ -1,5 +1,6 @@
 import { EmptyState, PageHead, useShell } from '../../components/AppShell';
 import { Countdown } from '../../components/Bits';
+import { OverviewSkeleton } from '../../components/Loading';
 import { useHackathons, useMe, useNow } from '../../lib/hooks';
 import { formatMoment, money } from '../../lib/time';
 import { STATUSES, STATUS_LABEL, type Hackathon } from '../../lib/types';
@@ -23,7 +24,7 @@ export function OverviewPage() {
   const now = useNow(60_000);
   const list = query.data ?? [];
 
-  if (query.isPending) return <div className="page-loading" role="status">Loading your hackathons</div>;
+  if (query.isPending) return <OverviewSkeleton />;
   if (query.isError) return <div className="page-error" role="alert">{query.error.message}</div>;
 
   const firstName = me.data?.name.split(' ')[0];

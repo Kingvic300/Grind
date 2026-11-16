@@ -34,3 +34,5 @@ export const IconUsers = () => <Icon><circle cx="9" cy="8" r="3.2" /><path d="M3
 export const IconLock = () => <Icon size={15}><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></Icon>;
 export const IconLink = () => <Icon size={16}><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></Icon>;
 export const IconCompass = () => <Icon><circle cx="12" cy="12" r="8.5" /><path d="M15.5 8.5l-2 5-5 2 2-5z" /></Icon>;
+export const IconLogout = () => <Icon><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 8l-4 4 4 4M6 12h10" /></Icon>;
+export const IconChevronDown = () => <Icon size={16}><path d="M6 9l6 6 6-6" /></Icon>;

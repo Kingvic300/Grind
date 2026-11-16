@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react';
 import { PageHead } from '../../components/AppShell';
 import { IconLink } from '../../components/Icons';
+import { PanelsSkeleton, Spinner } from '../../components/Loading';
 import { useMe, useSpaceActions, useSpaces } from '../../lib/hooks';
 import { useSpaceId } from '../../lib/space';
 import type { Space } from '../../lib/types';
@@ -13,12 +14,15 @@ function SpacePanel({ space, myId }: { space: Space; myId: string }) {
   const [name, setName] = useState(space.name);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [confirm, setConfirm] = useState<'leave' | 'delete' | null>(null);
-  const [busy, setBusy] = useState(false);
+  // Which action is running, so only that button shows a spinner.
+  const [working, setWorking] = useState<string | null>(null);
+  const busy = working !== null;
+  const spin = (key: string) => (working === key ? <Spinner /> : null);
   const owner = space.role === 'OWNER';
   const link = inviteUrl(space.inviteCode);
 
-  const run = async (work: () => Promise<unknown>, done?: string) => {
-    setBusy(true);
+  const run = async (key: string, work: () => Promise<unknown>, done?: string) => {
+    setWorking(key);
     setMessage(null);
     try {
       await work();
@@ -26,12 +30,12 @@ function SpacePanel({ space, myId }: { space: Space; myId: string }) {
     } catch (error) {
       setMessage({ ok: false, text: (error as Error).message });
     } finally {
-      setBusy(false);
+      setWorking(null);
     }
   };
 
   const copy = () =>
-    run(async () => {
+    run('copy', async () => {
       try {
         await navigator.clipboard.writeText(link);
       } catch {
@@ -41,7 +45,7 @@ function SpacePanel({ space, myId }: { space: Space; myId: string }) {
 
   const saveName = (event: FormEvent) => {
     event.preventDefault();
-    void run(() => actions.rename(space.id, name.trim()), 'Name saved');
+    void run('rename', () => actions.rename(space.id, name.trim()), 'Name saved');
   };
 
   return (
@@ -64,7 +68,7 @@ function SpacePanel({ space, myId }: { space: Space; myId: string }) {
         <div className="invite-row">
           <input value={link} readOnly aria-label={`Invite link for ${space.name}`} onFocus={(e) => e.target.select()} />
           <button type="button" className="btn btn-ink" onClick={copy} disabled={busy}>
-            <IconLink /> Copy
+            {working === 'copy' ? <Spinner /> : <IconLink />} Copy
           </button>
         </div>
         <small>Anyone with this link can join after they log in, then add and edit hackathons in this list.</small>
@@ -86,9 +90,9 @@ function SpacePanel({ space, myId }: { space: Space; myId: string }) {
                   type="button"
                   className="btn btn-quiet btn-danger-text"
                   disabled={busy}
-                  onClick={() => run(() => actions.removeMember(space.id, m.id), `${m.name} removed`)}
+                  onClick={() => run(`remove-${m.id}`, () => actions.removeMember(space.id, m.id), `${m.name} removed`)}
                 >
-                  Remove
+                  {spin(`remove-${m.id}`)}Remove
                 </button>
               )}
             </li>
@@ -101,15 +105,15 @@ function SpacePanel({ space, myId }: { space: Space; myId: string }) {
           <span>List name</span>
           <input id={`space-name-${space.id}`} value={name} onChange={(e) => setName(e.target.value)} required maxLength={60} />
         </label>
-        <button type="submit" className="btn btn-outline" disabled={busy || !name.trim() || name.trim() === space.name}>Save name</button>
+        <button type="submit" className="btn btn-outline" disabled={busy || !name.trim() || name.trim() === space.name}>{spin('rename')}Save name</button>
       </form>
 
       {message && <p className={message.ok ? 'form-ok' : 'form-error'} role="status">{message.text}</p>}
 
       <div className="space-actions">
         {owner && (
-          <button type="button" className="btn btn-quiet" disabled={busy} onClick={() => run(() => actions.resetInvite(space.id), 'New invite link made. The old link no longer works.')}>
-            Make new invite link
+          <button type="button" className="btn btn-quiet" disabled={busy} onClick={() => run('reset', () => actions.resetInvite(space.id), 'New invite link made. The old link no longer works.')}>
+            {spin('reset')}Make new invite link
           </button>
         )}
         <span className="spacer" />
@@ -124,9 +128,9 @@ function SpacePanel({ space, myId }: { space: Space; myId: string }) {
               type="button"
               className="btn btn-danger"
               disabled={busy}
-              onClick={() => run(() => (confirm === 'delete' ? actions.remove(space.id) : actions.removeMember(space.id, myId)))}
+              onClick={() => run('confirm', () => (confirm === 'delete' ? actions.remove(space.id) : actions.removeMember(space.id, myId)))}
             >
-              {confirm === 'delete' ? 'Delete' : 'Leave'}
+              {spin('confirm')}{confirm === 'delete' ? 'Delete' : 'Leave'}
             </button>
             <button type="button" className="btn btn-quiet" onClick={() => setConfirm(null)}>Keep</button>
           </span>
@@ -165,7 +169,7 @@ export function SharingPage() {
     }
   };
 
-  if (spaces.isPending || !me.data) return <div className="page-loading" role="status">Loading your shared lists</div>;
+  if (spaces.isPending || !me.data) return <PanelsSkeleton label="Loading your shared lists" />;
   if (spaces.isError) return <div className="page-error" role="alert">{spaces.error.message}</div>;
 
   return (
@@ -179,7 +183,7 @@ export function SharingPage() {
               <span>Name</span>
               <input id="new-space-name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={60} placeholder="Team Floodline 2027" />
             </label>
-            <button type="submit" className="btn btn-accent" disabled={busy || !name.trim()}>{busy ? 'Creating' : 'Create list'}</button>
+            <button type="submit" className="btn btn-accent" disabled={busy || !name.trim()}>{busy && <Spinner />}{busy ? 'Creating' : 'Create list'}</button>
           </div>
           {error && <p className="form-error" role="alert">{error}</p>}
           <p className="hint">Your private list stays private. Only hackathons you add to a shared list are shared.</p>

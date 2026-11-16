@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { EmptyState, PageHead, useShell } from '../../components/AppShell';
 import { Countdown } from '../../components/Bits';
 import { IconTrophy } from '../../components/Icons';
+import { BoardSkeleton } from '../../components/Loading';
 import { useHackathons, useSaveHackathon } from '../../lib/hooks';
 import { formatRange } from '../../lib/time';
 import { STATUSES, STATUS_LABEL, type Hackathon, type Status } from '../../lib/types';
@@ -66,7 +67,7 @@ export function BoardPage() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(KeyboardSensor));
   const list = query.data ?? [];
 
-  if (query.isPending) return <div className="page-loading" role="status">Loading your board</div>;
+  if (query.isPending) return <BoardSkeleton />;
   if (query.isError) return <div className="page-error" role="alert">{query.error.message}</div>;
 
   const onDragEnd = (event: DragEndEvent) => {

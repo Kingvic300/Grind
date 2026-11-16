@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Bone, Spinner } from '../components/Loading';
 import { Logo } from '../components/Logo';
 import { useInvitePreview, useSpaceActions } from '../lib/hooks';
 import { rememberSpace } from '../lib/space';
@@ -35,7 +36,16 @@ export function JoinPage() {
     <div className="join">
       <Logo />
       <section className="panel join-card">
-        {preview.isPending && <p className="muted" role="status">Checking the invite</p>}
+        {preview.isPending && (
+          <div className="skeleton join-skeleton" role="status">
+            <span className="sr-only">Checking the invite</span>
+            <Bone className="sk-line" style={{ width: 140 }} />
+            <Bone className="sk-title" />
+            <Bone className="sk-line" style={{ width: '90%' }} />
+            <Bone className="sk-line" style={{ width: '70%' }} />
+            <Bone className="sk-btn" style={{ width: '100%', height: 48 }} />
+          </div>
+        )}
         {preview.isError && (
           <>
             <h1>Invite not found</h1>
@@ -59,6 +69,7 @@ export function JoinPage() {
               </button>
             ) : (
               <button type="button" className="btn btn-accent btn-lg btn-block" onClick={join} disabled={busy}>
+                {busy && <Spinner />}
                 {busy ? 'Joining' : 'Join list'}
               </button>
             )}

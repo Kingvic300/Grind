@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
 import { MarketingLayout } from './components/MarketingLayout';
+import { AppSkeleton } from './components/Loading';
 import { useMe } from './lib/hooks';
 import { BoardPage } from './pages/app/Board';
 import { CalendarPage } from './pages/app/Calendar';
@@ -29,7 +30,7 @@ function ScrollToTop() {
 function RequireAuth() {
   const me = useMe();
   const location = useLocation();
-  if (me.isPending) return <div className="page-loading" role="status">Loading Grind</div>;
+  if (me.isPending) return <AppSkeleton />;
   if (!me.data) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   return <Outlet />;
 }

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { EmptyState, PageHead, useShell } from '../../components/AppShell';
 import { Countdown, StatusPill } from '../../components/Bits';
 import { IconSearch, IconTrophy } from '../../components/Icons';
+import { ListSkeleton } from '../../components/Loading';
 import { useHackathons } from '../../lib/hooks';
 import { formatRange } from '../../lib/time';
 import { FORMAT_LABEL, STATUSES, STATUS_LABEL, type Hackathon, type Status } from '../../lib/types';
@@ -36,7 +37,7 @@ export function ListPage() {
       .sort(SORTS[sort]);
   }, [list, search, status, sort]);
 
-  if (query.isPending) return <div className="page-loading" role="status">Loading your hackathons</div>;
+  if (query.isPending) return <ListSkeleton />;
   if (query.isError) return <div className="page-error" role="alert">{query.error.message}</div>;
 
   return (

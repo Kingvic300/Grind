@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHead } from '../../components/AppShell';
+import { Spinner } from '../../components/Loading';
 import { useAuthActions, useMe } from '../../lib/hooks';
 
 export function SettingsPage() {
@@ -9,10 +10,11 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const [name, setName] = useState(me.data?.name ?? '');
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [working, setWorking] = useState<'name' | 'reminders' | 'logout' | null>(null);
+  const busy = working !== null;
 
-  const run = async (work: () => Promise<unknown>, done: string) => {
-    setBusy(true);
+  const run = async (key: 'name' | 'reminders', work: () => Promise<unknown>, done: string) => {
+    setWorking(key);
     setMessage(null);
     try {
       await work();
@@ -20,16 +22,17 @@ export function SettingsPage() {
     } catch (error) {
       setMessage({ ok: false, text: (error as Error).message });
     } finally {
-      setBusy(false);
+      setWorking(null);
     }
   };
 
   const saveName = (event: FormEvent) => {
     event.preventDefault();
-    void run(() => actions.updateProfile({ name: name.trim() }), 'Name saved');
+    void run('name', () => actions.updateProfile({ name: name.trim() }), 'Name saved');
   };
 
   const logout = async () => {
+    setWorking('logout');
     await actions.logout();
     navigate('/');
   };
@@ -50,7 +53,7 @@ export function SettingsPage() {
             <span>Email</span>
             <input id="settings-email" value={me.data.email} readOnly />
           </label>
-          <button type="submit" className="btn btn-ink" disabled={busy || !name.trim() || name.trim() === me.data.name}>Save name</button>
+          <button type="submit" className="btn btn-ink" disabled={busy || !name.trim() || name.trim() === me.data.name}>{working === 'name' && <Spinner />}Save name</button>
         </form>
 
         <section className="panel">
@@ -62,12 +65,12 @@ export function SettingsPage() {
               disabled={busy}
               onChange={(e) => {
                 const on = e.target.checked;
-                void run(() => actions.updateProfile({ emailReminders: on }), on ? 'Email reminders on' : 'Email reminders off');
+                void run('reminders', () => actions.updateProfile({ emailReminders: on }), on ? 'Email reminders on' : 'Email reminders off');
               }}
             />
             <span className="switch-track" aria-hidden="true" />
             <span>
-              <strong>Email me before deadlines</strong>
+              <strong>Email me before deadlines {working === 'reminders' && <Spinner />}</strong>
               <span>3 days and 1 day before submission closes, and 1 day before registration closes. Sent to {me.data.email}.</span>
             </span>
           </label>
@@ -77,7 +80,7 @@ export function SettingsPage() {
 
         <section className="panel">
           <h2>Session</h2>
-          <button type="button" className="btn btn-outline" onClick={logout}>Log out</button>
+          <button type="button" className="btn btn-outline" onClick={logout} disabled={busy}>{working === 'logout' && <Spinner />}Log out</button>
         </section>
       </div>
     </>

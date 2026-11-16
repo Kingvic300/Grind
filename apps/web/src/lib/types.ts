@@ -104,7 +104,27 @@ export type Listing = {
   prize: string | null;
   tags: string[];
   imageUrl: string | null;
+  description: string | null;
+  categories: Category[];
+  stack: string[];
 };
+
+export const CATEGORY_LABEL = {
+  web3: 'Web3',
+  ai: 'AI and ML',
+  mobile: 'Mobile',
+  gaming: 'Gaming',
+  hardware: 'Hardware and IoT',
+  data: 'Data',
+  security: 'Security',
+  fintech: 'Fintech',
+  health: 'Health',
+  climate: 'Climate',
+  education: 'Education',
+  social: 'Social good',
+  beginner: 'Beginner friendly',
+} as const;
+export type Category = keyof typeof CATEGORY_LABEL;
 
 export type DiscoverResult = {
   fetchedAt: string;

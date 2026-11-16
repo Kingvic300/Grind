@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useOutletContext } from 'react-router-dom';
-import { useLiveUpdates, useMe, useSpaces } from '../lib/hooks';
+import { Link, NavLink, Outlet, useNavigate, useOutletContext } from 'react-router-dom';
+import { useAuthActions, useHackathons, useLiveUpdates, useMe, useSpaces } from '../lib/hooks';
 import { SpaceProvider, useSpaceId } from '../lib/space';
 import type { Hackathon } from '../lib/types';
 import { HackathonDrawer } from './HackathonDrawer';
-import { IconBoard, IconCalendar, IconCompass, IconList, IconOverview, IconPlus, IconSettings, IconUsers } from './Icons';
+import { IconBoard, IconCalendar, IconCompass, IconList, IconLogout, IconOverview, IconPlus, IconSettings, IconUsers } from './Icons';
 import { Logo } from './Logo';
+import { NextUp } from './NextUp';
+import { SpaceSwitcher } from './SpaceSwitcher';
 
 type Editing = { hackathon: Hackathon | null } | null;
 type ShellContext = { openEditor: (hackathon?: Hackathon) => void };
@@ -13,39 +15,36 @@ type ShellContext = { openEditor: (hackathon?: Hackathon) => void };
 /** Lets any app page open the add or edit drawer. */
 export const useShell = () => useOutletContext<ShellContext>();
 
-// short is the label in the phone tab bar, where seven items share the width.
-const NAV = [
-  { to: '/app', label: 'Overview', short: 'Home', icon: <IconOverview />, end: true },
-  { to: '/app/hackathons', label: 'Hackathons', short: 'List', icon: <IconList />, end: false },
-  { to: '/app/board', label: 'Board', short: 'Board', icon: <IconBoard />, end: false },
-  { to: '/app/calendar', label: 'Calendar', short: 'Calendar', icon: <IconCalendar />, end: false },
-  { to: '/app/discover', label: 'Discover', short: 'Discover', icon: <IconCompass />, end: false },
-  { to: '/app/sharing', label: 'Sharing', short: 'Share', icon: <IconUsers />, end: false },
-  { to: '/app/settings', label: 'Settings', short: 'Settings', icon: <IconSettings />, end: false },
-];
+type NavItem = { to: string; label: string; short: string; icon: React.ReactNode; end?: boolean; count?: boolean; phoneOnly?: boolean };
 
-/** Picks which list the app shows: the private list or one of the shared lists. */
-function SpaceSwitcher({ id }: { id: string }) {
-  const { spaceId, setSpaceId } = useSpaceId();
-  const spaces = useSpaces();
-  return (
-    <label className="space-switch" htmlFor={id}>
-      <span>Showing</span>
-      <select id={id} value={spaceId ?? ''} onChange={(e) => setSpaceId(e.target.value || null)}>
-        <option value="">My hackathons (private)</option>
-        {spaces.data?.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.name} ({s.members.length} {s.members.length === 1 ? 'person' : 'people'})
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
+// short is the label in the phone tab bar, where seven items share the width.
+const GROUPS: { title: string; items: NavItem[] }[] = [
+  {
+    title: 'Track',
+    items: [
+      { to: '/app', label: 'Overview', short: 'Home', icon: <IconOverview />, end: true },
+      { to: '/app/hackathons', label: 'Hackathons', short: 'List', icon: <IconList />, count: true },
+      { to: '/app/board', label: 'Board', short: 'Board', icon: <IconBoard /> },
+      { to: '/app/calendar', label: 'Calendar', short: 'Calendar', icon: <IconCalendar /> },
+    ],
+  },
+  {
+    title: 'Explore',
+    items: [
+      { to: '/app/discover', label: 'Discover', short: 'Discover', icon: <IconCompass /> },
+      { to: '/app/sharing', label: 'Sharing', short: 'Share', icon: <IconUsers /> },
+      // On wide screens Settings lives in the account row instead.
+      { to: '/app/settings', label: 'Settings', short: 'Settings', icon: <IconSettings />, phoneOnly: true },
+    ],
+  },
+];
 
 function Shell() {
   const me = useMe();
   const spaces = useSpaces();
+  const hackathons = useHackathons();
+  const actions = useAuthActions();
+  const navigate = useNavigate();
   const { spaceId, setSpaceId } = useSpaceId();
   const [editing, setEditing] = useState<Editing>(null);
   const openEditor = (hackathon?: Hackathon) => setEditing({ hackathon: hackathon ?? null });
@@ -59,35 +58,52 @@ function Shell() {
     }
   }, [spaceId, spaces.data, setSpaceId]);
 
+  const logout = async () => {
+    await actions.logout();
+    navigate('/');
+  };
+
   return (
     <div className="shell">
       <aside className="shell-side">
-        <Logo to="/app" size={26} />
-        <SpaceSwitcher id="space-switch-side" />
+        <Logo to="/app" size={26} onDark />
+        <SpaceSwitcher />
         <button type="button" className="btn btn-accent shell-add" onClick={() => openEditor()}>
           <IconPlus /> Add hackathon
         </button>
+
         <nav className="shell-nav" aria-label="App">
-          {NAV.map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.end} aria-label={item.label}>
-              {item.icon}
-              <span className="nav-long">{item.label}</span>
-              <span className="nav-short" aria-hidden="true">{item.short}</span>
-            </NavLink>
+          {GROUPS.map((group) => (
+            <div className="nav-group" key={group.title}>
+              <p className="nav-title">{group.title}</p>
+              {group.items.map((item) => (
+                <NavLink key={item.to} to={item.to} end={item.end} aria-label={item.label} className={item.phoneOnly ? 'phone-only' : undefined}>
+                  {item.icon}
+                  <span className="nav-long">{item.label}</span>
+                  <span className="nav-short" aria-hidden="true">{item.short}</span>
+                  {item.count && hackathons.data && <span className="nav-count">{hackathons.data.length}</span>}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
+
+        <NextUp onOpen={openEditor} />
+
         <div className="shell-user">
           <span className="avatar" aria-hidden="true">{me.data?.name.slice(0, 1).toUpperCase()}</span>
           <span className="shell-user-text">
             <strong>{me.data?.name}</strong>
             <span>{me.data?.email}</span>
           </span>
+          <Link to="/app/settings" className="side-icon" aria-label="Settings" title="Settings"><IconSettings /></Link>
+          <button type="button" className="side-icon" onClick={logout} aria-label="Log out" title="Log out"><IconLogout /></button>
         </div>
       </aside>
 
       <main className="shell-main">
         <div className="shell-top">
-          <SpaceSwitcher id="space-switch-top" />
+          <SpaceSwitcher tone="light" />
         </div>
         <Outlet context={{ openEditor } satisfies ShellContext} />
       </main>
@@ -116,7 +132,7 @@ export function AppShell() {
 }
 
 /** Page title row used at the top of every app page. */
-export function PageHead({ title, sub, children }: { title: string; sub?: string; children?: React.ReactNode }) {
+export function PageHead({ title, sub, children }: { title: React.ReactNode; sub?: string; children?: React.ReactNode }) {
   return (
     <header className="page-head">
       <div>

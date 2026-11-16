@@ -3,6 +3,7 @@ import { useDeleteHackathon, useSaveHackathon } from '../lib/hooks';
 import { dateKey, toLocalInput } from '../lib/time';
 import { FORMATS, FORMAT_LABEL, STATUSES, STATUS_LABEL, type Format, type Hackathon, type HackathonInput, type Status } from '../lib/types';
 import { IconClose } from './Icons';
+import { Spinner } from './Loading';
 
 type FormState = {
   name: string; organizer: string; url: string; format: Format; location: string;
@@ -256,7 +257,7 @@ export function HackathonDrawer({ hackathon, onClose }: { hackathon: Hackathon |
               (confirmDelete ? (
                 <span className="confirm">
                   Delete this hackathon?
-                  <button type="button" className="btn btn-danger" onClick={destroy} disabled={busy}>Delete</button>
+                  <button type="button" className="btn btn-danger" onClick={destroy} disabled={busy}>{remove.isPending && <Spinner />}Delete</button>
                   <button type="button" className="btn btn-quiet" onClick={() => setConfirmDelete(false)}>Keep</button>
                 </span>
               ) : (
@@ -267,6 +268,7 @@ export function HackathonDrawer({ hackathon, onClose }: { hackathon: Hackathon |
             <span className="spacer" />
             <button type="button" className="btn btn-quiet" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-ink" disabled={busy}>
+              {save.isPending && <Spinner />}
               {save.isPending ? 'Saving' : hackathon ? 'Save changes' : 'Add hackathon'}
             </button>
           </div>

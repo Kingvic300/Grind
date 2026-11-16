@@ -1,21 +1,45 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { type Listing, SOURCES, type Source } from './sources';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { enrich } from './enrich';
+import { type Listing, type RawListing, SOURCES, type Source } from './sources';
 
 const CACHE_MS = 30 * 60 * 1000;
 
 export type SourceStatus = { source: Source; label: string; ok: boolean; count: number; error?: string };
 export type DiscoverResult = { fetchedAt: string; sources: SourceStatus[]; hackathons: Listing[] };
 
-/** Collects open and upcoming hackathons from public sites. Cached for 30 minutes. */
+/**
+ * Collects open and upcoming hackathons from public sites. Refreshes every 30 minutes in
+ * the background and serves the last good result meanwhile, because reading every event
+ * page for descriptions takes several seconds.
+ */
 @Injectable()
-export class DiscoverService {
+export class DiscoverService implements OnApplicationBootstrap {
   private readonly logger = new Logger(DiscoverService.name);
   private cache: { at: number; result: DiscoverResult } | null = null;
   private pending: Promise<DiscoverResult> | null = null;
+  /** Descriptions by listing id, so each event page is fetched only once. */
+  private readonly descriptions = new Map<string, string>();
+
+  onApplicationBootstrap() {
+    void this.refresh().catch(() => undefined);
+  }
+
+  @Cron(CronExpression.EVERY_30_MINUTES)
+  scheduled() {
+    void this.refresh().catch(() => undefined);
+  }
 
   async list(): Promise<DiscoverResult> {
-    if (this.cache && Date.now() - this.cache.at < CACHE_MS) return this.cache.result;
-    // Many people opening the page at once share one fetch.
+    if (this.cache) {
+      if (Date.now() - this.cache.at > CACHE_MS) void this.refresh().catch(() => undefined);
+      return this.cache.result;
+    }
+    return this.refresh();
+  }
+
+  /** Many callers at once share one fetch. */
+  private refresh(): Promise<DiscoverResult> {
     this.pending ??= this.load().finally(() => {
       this.pending = null;
     });
@@ -27,7 +51,7 @@ export class DiscoverService {
     const settled = await Promise.allSettled(entries.map(([, s]) => s.fetch()));
     const today = new Date().toISOString().slice(0, 10);
     const sources: SourceStatus[] = [];
-    const hackathons: Listing[] = [];
+    const raw: RawListing[] = [];
 
     settled.forEach((outcome, i) => {
       const [source, { label }] = entries[i];
@@ -40,14 +64,22 @@ export class DiscoverService {
       // Drop events that already ended.
       const live = outcome.value.filter((h) => !h.endDate || h.endDate >= today);
       sources.push({ source, label, ok: true, count: live.length });
-      hackathons.push(...live);
+      raw.push(...live);
     });
+
+    // Forget descriptions of events that dropped off, so the map does not grow forever.
+    const ids = new Set(raw.map((h) => h.id));
+    for (const id of this.descriptions.keys()) if (!ids.has(id)) this.descriptions.delete(id);
+
+    const started = Date.now();
+    const hackathons = await enrich(raw, this.descriptions);
+    this.logger.log(`Discover refreshed: ${hackathons.length} hackathons in ${Date.now() - started} ms`);
 
     const far = '9999-12-31';
     hackathons.sort((a, b) => (a.startDate ?? far).localeCompare(b.startDate ?? far) || a.name.localeCompare(b.name));
     const result = { fetchedAt: new Date().toISOString(), sources, hackathons };
-    // Do not keep a result where every source failed, so the next visit tries again.
-    if (sources.some((s) => s.ok)) this.cache = { at: Date.now(), result };
-    return result;
+    // Keep the old result when every source failed, so the page still has something to show.
+    if (sources.some((s) => s.ok) || !this.cache) this.cache = { at: Date.now(), result };
+    return this.cache.result;
   }
 }

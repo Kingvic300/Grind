@@ -24,7 +24,20 @@ export type Listing = {
   prize: string | null;
   tags: string[];
   imageUrl: string | null;
+  /** Plain text from the event's own page, trimmed. Filled in by enrich(). */
+  description: string | null;
+  /** Derived from name, tags and description. */
+  categories: Category[];
+  stack: string[];
 };
+
+/** A listing straight from a site, before descriptions and tags are added. */
+export type RawListing = Omit<Listing, 'description' | 'categories' | 'stack'> & {
+  /** Description the list endpoint already gave, so no page fetch is needed. */
+  inlineDescription?: string | null;
+};
+
+import type { Category } from './classify';
 
 const TIMEOUT_MS = 12_000;
 const HEADERS = {
@@ -32,13 +45,13 @@ const HEADERS = {
   Accept: 'application/json, text/html;q=0.9',
 };
 
-async function get(url: string, init: RequestInit = {}): Promise<Response> {
+export async function get(url: string, init: RequestInit = {}): Promise<Response> {
   const res = await fetch(url, { ...init, headers: { ...HEADERS, ...init.headers }, signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res;
 }
 
-const clean = (v: unknown): string | null => {
+export const clean = (v: unknown): string | null => {
   if (typeof v !== 'string') return null;
   const t = v.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
   // Some listings fill blank fields with placeholder words.
@@ -115,8 +128,8 @@ type DevpostItem = {
   invite_only?: boolean;
 };
 
-export async function fetchDevpost(): Promise<Listing[]> {
-  const out: Listing[] = [];
+export async function fetchDevpost(): Promise<RawListing[]> {
+  const out: RawListing[] = [];
   for (let page = 1; page <= 5; page++) {
     const res = await get(`https://devpost.com/api/hackathons?status[]=upcoming&status[]=open&page=${page}`);
     const data = (await res.json()) as { hackathons: DevpostItem[]; meta?: { total_count?: number; per_page?: number } };
@@ -169,8 +182,8 @@ type DoraItem = {
   bonus_token?: string;
 };
 
-export async function fetchDoraHacks(): Promise<Listing[]> {
-  const out: Listing[] = [];
+export async function fetchDoraHacks(): Promise<RawListing[]> {
+  const out: RawListing[] = [];
   for (const status of ['ongoing', 'upcoming']) {
     const res = await get(`https://dorahacks.io/api/v1/hub/hackathons?page=1&page_size=100&status=${status}`);
     const data = (await res.json()) as { results: DoraItem[] };
@@ -214,12 +227,13 @@ type DevfolioItem = {
   country?: string | null;
   timezone?: string;
   themes?: { name?: string }[] | null;
+  desc?: string | null;
   private?: boolean;
   hackathon_setting?: { reg_ends_at?: string | null; logo?: string | null; site?: string | null };
 };
 
-export async function fetchDevfolio(): Promise<Listing[]> {
-  const out: Listing[] = [];
+export async function fetchDevfolio(): Promise<RawListing[]> {
+  const out: RawListing[] = [];
   const seen = new Set<string>();
   for (const type of ['application_open', 'upcoming']) {
     const res = await get('https://api.devfolio.co/api/search/hackathons', {
@@ -247,6 +261,7 @@ export async function fetchDevfolio(): Promise<Listing[]> {
         prize: null,
         tags: (h.themes ?? []).map((t) => t?.name).filter((t): t is string => Boolean(t)),
         imageUrl: https(h.hackathon_setting?.logo),
+        inlineDescription: [h.tagline, h.desc].filter(Boolean).join('. '),
       });
     }
   }
@@ -268,8 +283,8 @@ const decode = (s: string) =>
 export const mlhSeason = (now = new Date()) => (now.getUTCMonth() >= 6 ? now.getUTCFullYear() + 1 : now.getUTCFullYear());
 
 /** MLH has no API. Its events page marks each event with schema.org microdata, which this reads. */
-export function parseMlh(html: string): Listing[] {
-  const out: Listing[] = [];
+export function parseMlh(html: string): RawListing[] {
+  const out: RawListing[] = [];
   const blocks = html.split('itemType="https://schema.org/Event"').slice(1);
   for (const block of blocks) {
     const meta = (prop: string) => block.match(new RegExp(`itemProp="${prop}" content="([^"]*)"`))?.[1] ?? null;
@@ -298,12 +313,12 @@ export function parseMlh(html: string): Listing[] {
   return out;
 }
 
-export async function fetchMlh(): Promise<Listing[]> {
+export async function fetchMlh(): Promise<RawListing[]> {
   const res = await get(`https://www.mlh.com/seasons/${mlhSeason()}/events`);
   return parseMlh(await res.text());
 }
 
-export const SOURCES: Record<Source, { label: string; fetch: () => Promise<Listing[]> }> = {
+export const SOURCES: Record<Source, { label: string; fetch: () => Promise<RawListing[]> }> = {
   devpost: { label: 'Devpost', fetch: fetchDevpost },
   dorahacks: { label: 'DoraHacks', fetch: fetchDoraHacks },
   devfolio: { label: 'Devfolio', fetch: fetchDevfolio },
