@@ -7,8 +7,16 @@ export class ApiError extends Error {
   }
 }
 
-/** Deployed API. Local dev uses a relative path so the Vite proxy forwards to localhost:3000. */
-export const API_URL = import.meta.env.DEV ? '' : 'https://grind-c1o3.onrender.com';
+/**
+ * The app always calls the API on its own origin: the Vite proxy forwards /api in dev and a
+ * Vercel rewrite forwards it in production. That keeps the session cookie first-party, which
+ * mobile browsers (Safari and every iOS browser) require: they drop cross-site cookies even
+ * with SameSite=None, so logins appeared to work but every later request came back 401.
+ */
+export const API_URL = '';
+
+/** Direct API address for links used outside the app, such as calendar feeds. */
+export const PUBLIC_API_URL = import.meta.env.DEV ? '' : 'https://grind-c1o3.onrender.com';
 
 /** Calls the Grind API and returns the parsed JSON body. Throws ApiError with a readable message. */
 export async function api<T>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {

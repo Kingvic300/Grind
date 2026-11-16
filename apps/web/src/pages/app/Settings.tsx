@@ -5,7 +5,7 @@ import { IconCheck, IconLink } from '../../components/Icons';
 import { ImportButton } from '../../components/ImportDialog';
 import { Bone, Spinner } from '../../components/Loading';
 import { Faces } from '../../components/SpaceSwitcher';
-import { API_URL } from '../../lib/api';
+import { PUBLIC_API_URL } from '../../lib/api';
 import { useAuthActions, useCalendarFeed, useDiscover, useHackathons, useMe, useSpaces, useStats } from '../../lib/hooks';
 import { useSpaceId } from '../../lib/space';
 import { formatClock, money } from '../../lib/time';
@@ -354,7 +354,7 @@ function CalendarFeed() {
   const feed = useCalendarFeed();
   const a = useAction();
   const token = feed.query.data?.token ?? null;
-  const httpsUrl = token ? `${API_URL || window.location.origin}/api/calendar/${token}.ics` : '';
+  const httpsUrl = token ? `${PUBLIC_API_URL || window.location.origin}/api/calendar/${token}.ics` : '';
   const webcal = httpsUrl.replace(/^https?:/, 'webcal:');
 
   return (
