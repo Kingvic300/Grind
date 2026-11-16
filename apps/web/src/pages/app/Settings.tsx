@@ -25,7 +25,7 @@ const TABS = [
   { id: 'notifications', label: 'Notifications', hint: 'Emails and calendar' },
   { id: 'discover', label: 'Discover', hint: 'Your interests' },
   { id: 'preferences', label: 'Preferences', hint: 'Lists, week, clock' },
-  { id: 'lists', label: 'Shared lists', hint: 'Where you belong' },
+  { id: 'lists', label: 'Teams', hint: 'Where you belong' },
   { id: 'security', label: 'Security', hint: 'Password, devices' },
   { id: 'data', label: 'Your data', hint: 'Export, delete' },
 ] as const;
@@ -160,7 +160,7 @@ function Header({ me }: { me: User }) {
         ['Submitted', stats.data.submitted],
         ['Wins', stats.data.wins],
         ['Prize money', money(stats.data.prizeMoney)],
-        ['Shared lists', stats.data.sharedLists],
+        ['Teams', stats.data.sharedLists],
       ]
     : [];
 
@@ -241,7 +241,7 @@ function ProfileTab({ me }: { me: User }) {
 
   return (
     <>
-      <Section title="Profile" sub="Members of your shared lists see your photo, bio, skills and links.">
+      <Section title="Profile" sub="Your teammates see your photo, bio, skills and links.">
         <form className="set-form" onSubmit={save}>
           <div className="field-row">
             <label className="field" htmlFor="p-name">
@@ -325,7 +325,7 @@ function NotificationsTab({ me }: { me: User }) {
 
   return (
     <>
-      <Section title="Deadline emails" sub={`Sent to ${me.email}. In shared lists every member gets their own.`}>
+      <Section title="Deadline emails" sub={`Sent to ${me.email}. In teams every member gets their own.`}>
         <div className="set-toggles">
           <Toggle checked={me.emailReminders} busy={a.working === 'emailReminders'} disabled={a.busy} onChange={(v) => toggle('emailReminders', v, v ? 'Deadline emails on' : 'Deadline emails off')} title="Email me before deadlines" sub="Master switch for the three reminders below." />
           <div className={`set-sub${off ? ' is-off' : ''}`}>
@@ -500,7 +500,7 @@ function ListsTab() {
   const mine = useHackathons();
 
   return (
-    <Section title="Shared lists" sub="Lists you belong to. Invite people, rename or leave on the Sharing page.">
+    <Section title="Teams" sub="Teams you are in. Invite people, rename or leave on the Team page.">
       {spaces.isPending ? (
         <><Bone className="sk-row" /><Bone className="sk-row" /></>
       ) : (
@@ -526,7 +526,7 @@ function ListsTab() {
         </ul>
       )}
       <div className="set-actions">
-        <Link to="/app/sharing" className="btn btn-ink">Manage shared lists</Link>
+        <Link to="/app/team" className="btn btn-ink">Manage teams</Link>
       </div>
     </Section>
   );
@@ -603,7 +603,7 @@ function DataTab({ me }: { me: User }) {
 
   return (
     <>
-      <Section title="Export" sub="Everything you track, from your private list and every shared list you are in.">
+      <Section title="Export" sub="Everything you track, from your private list and every team you are in.">
         <div className="set-actions">
           <button type="button" className="btn btn-outline" disabled={ex.busy} onClick={exportCsv}>{ex.spin('csv')}Download hackathons (CSV)</button>
           <button type="button" className="btn btn-outline" disabled={ex.busy} onClick={exportJson}>{ex.spin('json')}Download everything (JSON)</button>
@@ -615,8 +615,8 @@ function DataTab({ me }: { me: User }) {
         <header>
           <h2>Delete account</h2>
           <p>
-            Deletes your account, your private list and your settings. Hackathons you added to shared lists stay there for the other members.
-            Shared lists where you are the only member are deleted. This cannot be undone.
+            Deletes your account, your private list and your settings. Hackathons you added to teams stay there for the other members.
+            Teams where you are the only member are deleted. This cannot be undone.
           </p>
         </header>
         {!open ? (

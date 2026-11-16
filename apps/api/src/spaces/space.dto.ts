@@ -6,6 +6,6 @@ const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? val
 export class SpaceNameDto {
   @Transform(trim)
   @IsString()
-  @Length(1, 60, { message: 'Give the list a name of up to 60 characters.' })
+  @Length(1, 60, { message: 'Give the team a name of up to 60 characters.' })
   name: string;
 }

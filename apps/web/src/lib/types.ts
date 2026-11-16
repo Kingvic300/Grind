@@ -62,7 +62,7 @@ export type Person = { id: string; name: string };
 
 export type SpaceMember = Profile & { email: string; role: 'OWNER' | 'MEMBER'; joinedAt: string };
 
-/** A shared hackathon list. */
+/** A team: a shared hackathon list everyone in it can edit. */
 export type Space = {
   id: string;
   name: string;
@@ -112,10 +112,35 @@ export type Hackathon = {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Team members responsible for it. */
+  assignees: Profile[];
+  taskCount: number;
+  tasksDone: number;
+  commentCount: number;
 };
 
 /** The fields a client may send when creating or editing a hackathon. */
-export type HackathonInput = Partial<Omit<Hackathon, 'id' | 'spaceId' | 'user' | 'updatedBy' | 'createdAt' | 'updatedAt'>>;
+export type HackathonInput = Partial<
+  Omit<Hackathon, 'id' | 'spaceId' | 'user' | 'updatedBy' | 'createdAt' | 'updatedAt' | 'assignees' | 'taskCount' | 'tasksDone' | 'commentCount'>
+> & { assigneeIds?: string[] };
+
+export type Task = { id: string; title: string; done: boolean; position: number; createdAt: string; assignee: Profile | null };
+
+export type Comment = { id: string; body: string; createdAt: string; author: Profile | null };
+
+export type ActivityKind =
+  | 'added' | 'moved' | 'edited' | 'deleted' | 'assigned'
+  | 'task_added' | 'task_done' | 'commented' | 'joined' | 'left' | 'renamed';
+
+export type Activity = {
+  id: string;
+  kind: ActivityKind;
+  detail: string | null;
+  hackathonId: string | null;
+  hackathonName: string | null;
+  createdAt: string;
+  actor: Profile | null;
+};
 
 export const SOURCES = ['devpost', 'dorahacks', 'devfolio', 'mlh'] as const;
 export type Source = (typeof SOURCES)[number];

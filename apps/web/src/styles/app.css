@@ -84,7 +84,8 @@ button.nextup:hover { border-color: rgb(242 84 27 / 0.6); }
 .switcher-new:hover { background: var(--bg); }
 
 /* Sharing */
-.sharing { display: grid; gap: 16px; max-width: 720px; }
+.sharing { display: grid; gap: 16px; max-width: 1180px; }
+.sharing .create-space { max-width: 720px; }
 .space-panel, .create-space { display: grid; gap: 18px; }
 .space-panel-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .space-panel-head h2 { margin-bottom: 2px; }
@@ -498,3 +499,72 @@ button.nextup:hover { border-color: rgb(242 84 27 / 0.6); }
   .set-sub { margin-left: 8px; padding-left: 14px; }
   .field-row { grid-template-columns: 1fr; }
 }
+
+/* Team: activity feed, drawer tabs, tasks, comments, card footer */
+.team-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 380px); gap: 28px; align-items: start; }
+.team-main { display: grid; gap: 18px; min-width: 0; }
+.team-activity { border-left: 1px solid var(--line); padding-left: 24px; min-width: 0; }
+.team-activity h3 { font-size: 15px; margin-bottom: 10px; }
+.feed ul { list-style: none; margin: 0; padding: 0; display: grid; }
+.feed-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--line); }
+.feed-item:first-child { border-top: 0; padding-top: 0; }
+.feed-item .avatar { flex: none; }
+.feed-text { min-width: 0; display: grid; gap: 3px; font-size: 14px; line-height: 1.45; }
+.feed-text p { margin: 0; overflow-wrap: anywhere; }
+.feed-text b { font-weight: 600; }
+.feed-text q { font-size: 13px; color: var(--ink-2); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; quotes: none; overflow-wrap: anywhere; }
+.feed-text time { font-size: 12px; color: var(--muted); }
+.feed-link { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--ink); text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 3px; cursor: pointer; }
+.feed-empty { font-size: 14px; }
+.feed .btn { margin-top: 8px; }
+@media (max-width: 900px) {
+  .team-grid { grid-template-columns: 1fr; }
+  .team-activity { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 18px; }
+}
+
+.drawer-tabs { display: flex; gap: 4px; padding: 10px 24px 0; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.drawer-tabs button { border: 0; background: none; font: inherit; font-weight: 600; font-size: 14.5px; color: var(--muted); padding: 8px 12px 10px; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.drawer-tabs button.is-on { color: var(--ink); border-bottom-color: var(--accent); }
+.drawer-tabs b { font-size: 12px; font-weight: 600; background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; color: var(--ink-2); }
+.drawer-body[hidden] { display: none; }
+
+.assignee-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+.assignee-picker button { display: inline-flex; align-items: center; gap: 7px; font: inherit; font-size: 14px; font-weight: 500; padding: 4px 12px 4px 4px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); cursor: pointer; }
+.assignee-picker button.is-on { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.assignee-picker .avatar { border-radius: 50% !important; }
+
+.tw { display: grid; gap: 14px; padding-block: 20px; }
+.tw-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.tw-empty { font-size: 14px; padding: 6px 0; }
+.tw-progress { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.tw-bar { height: 6px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
+.tw-bar i { display: block; height: 100%; background: var(--accent); transition: width 0.25s ease; }
+.task { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); min-width: 0; }
+.task-check { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; font-size: 14.5px; cursor: pointer; }
+.task-check input { width: 17px; height: 17px; accent-color: var(--accent); flex: none; }
+.task-check span { overflow-wrap: anywhere; }
+.task.is-done .task-check span { text-decoration: line-through; color: var(--muted); }
+.task-who { width: auto; max-width: 130px; font-size: 13px; padding: 4px 8px; }
+.icon-btn-sm { width: 30px; height: 30px; flex: none; color: var(--muted); }
+.task-add { display: flex; gap: 8px; }
+.task-add input { flex: 1; min-width: 0; }
+.task-add select { width: auto; max-width: 140px; }
+@media (max-width: 520px) { .task-add { flex-wrap: wrap; } .task-add input { flex-basis: 100%; } .task-who { max-width: 96px; } }
+
+.comments { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.comments li { display: flex; gap: 10px; align-items: flex-start; }
+.comments li > div { min-width: 0; flex: 1; }
+.comment-head { display: flex; align-items: baseline; gap: 8px; margin: 0 0 2px; font-size: 14px; flex-wrap: wrap; }
+.comment-head time { font-size: 12px; color: var(--muted); }
+.comment-body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14.5px; line-height: 1.5; }
+.link-btn { border: 0; background: none; padding: 0; font: inherit; font-size: 12.5px; color: var(--muted); text-decoration: underline; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.comment-add { display: grid; gap: 8px; }
+.comment-add-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+.card-foot { display: flex; align-items: center; gap: 10px; margin-top: 2px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.card-stat { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.card-stat.is-complete { color: #1f9d55; }
+.card-foot .face { box-shadow: 0 0 0 2px var(--surface); }
+.spacer { flex: 1; }
+.faces { position: relative; }
+@media (min-width: 901px) { .team-activity .feed { max-height: 620px; overflow-y: auto; padding-right: 6px; } }

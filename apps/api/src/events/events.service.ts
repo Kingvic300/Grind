@@ -4,7 +4,9 @@ import { Observable, Subject, filter, map } from 'rxjs';
 /** What changed. The web app refetches the matching data when it receives one. */
 export type LiveEvent =
   | { type: 'hackathons'; spaceId: string | null }
-  | { type: 'spaces' };
+  | { type: 'spaces' }
+  | { type: 'activity'; spaceId: string }
+  | { type: 'detail'; hackathonId: string };
 
 type Envelope = { userIds: string[]; event: LiveEvent };
 

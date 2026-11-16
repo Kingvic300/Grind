@@ -15,7 +15,7 @@ export function Faces({ people, max = 3, size = 20 }: { people: Profile[]; max?:
   );
 }
 
-/** Picks which list the app shows: the private list or one of the shared lists. */
+/** Picks which list the app shows: the private list or one of the user's teams. */
 export function SpaceSwitcher({ tone = 'dark' }: { tone?: 'dark' | 'light' }) {
   const { spaceId, setSpaceId } = useSpaceId();
   const spaces = useSpaces();
@@ -96,8 +96,8 @@ export function SpaceSwitcher({ tone = 'dark' }: { tone?: 'dark' | 'light' }) {
               {spaceId === s.id && <IconCheck />}
             </button>
           ))}
-          <Link to="/app/sharing" className="switcher-new" onClick={() => setOpen(false)}>
-            <IconPlus /> New shared list
+          <Link to="/app/team" className="switcher-new" onClick={() => setOpen(false)}>
+            <IconPlus /> New team
           </Link>
         </div>
       )}

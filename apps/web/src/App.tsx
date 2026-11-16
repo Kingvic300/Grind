@@ -10,7 +10,7 @@ import { DiscoverPage } from './pages/app/Discover';
 import { ListPage } from './pages/app/List';
 import { OverviewPage } from './pages/app/Overview';
 import { SettingsPage } from './pages/app/Settings';
-import { SharingPage } from './pages/app/Sharing';
+import { TeamPage } from './pages/app/Team';
 import { JoinPage } from './pages/Join';
 import { AboutPage } from './pages/marketing/About';
 import { AuthPage } from './pages/marketing/Auth';
@@ -56,7 +56,8 @@ export function App() {
             <Route path="board" element={<BoardPage />} />
             <Route path="calendar" element={<CalendarPage />} />
             <Route path="discover" element={<DiscoverPage />} />
-            <Route path="sharing" element={<SharingPage />} />
+            <Route path="team" element={<TeamPage />} />
+            <Route path="sharing" element={<Navigate to="/app/team" replace />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Route>

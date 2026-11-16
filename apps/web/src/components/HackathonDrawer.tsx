@@ -1,9 +1,12 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react';
-import { useDeleteHackathon, useSaveHackathon } from '../lib/hooks';
+import { useDeleteHackathon, useHackathons, useSaveHackathon, useSpaces } from '../lib/hooks';
 import { dateKey, toLocalInput } from '../lib/time';
 import { FORMATS, FORMAT_LABEL, STATUSES, STATUS_LABEL, type Format, type Hackathon, type HackathonInput, type Status } from '../lib/types';
 import { IconClose } from './Icons';
 import { Spinner } from './Loading';
+import { AssigneePicker, CommentsPanel, TasksPanel } from './TeamWork';
+
+type Tab = 'details' | 'tasks' | 'comments';
 
 type FormState = {
   name: string; organizer: string; url: string; format: Format; location: string;
@@ -12,6 +15,7 @@ type FormState = {
   projectName: string; projectDescription: string; techStack: string; teammates: string;
   repoUrl: string; demoUrl: string;
   won: boolean; placement: string; prizeName: string; prizeAmount: string; notes: string;
+  assigneeIds: string[];
 };
 
 function toForm(h: Hackathon | null): FormState {
@@ -27,6 +31,7 @@ function toForm(h: Hackathon | null): FormState {
     repoUrl: h?.repoUrl ?? '', demoUrl: h?.demoUrl ?? '',
     won: h?.won ?? false, placement: h?.placement ?? '', prizeName: h?.prizeName ?? '',
     prizeAmount: h?.prizeAmount != null ? String(h.prizeAmount) : '', notes: h?.notes ?? '',
+    assigneeIds: (h?.assignees ?? []).map((a) => a.id).sort(),
   };
 }
 
@@ -40,8 +45,10 @@ const link = (v: string) => {
   return t ? (/^https?:\/\//i.test(t) ? t : `https://${t}`) : null;
 };
 
-function toInput(f: FormState): HackathonInput {
+/** withAssignees is set for team hackathons that already exist; new ones get assignees after saving. */
+function toInput(f: FormState, withAssignees = false): HackathonInput {
   return {
+    ...(withAssignees ? { assigneeIds: [...f.assigneeIds].sort() } : {}),
     name: f.name.trim(), organizer: text(f.organizer), url: link(f.url), format: f.format, location: text(f.location),
     startDate: day(f.startDate), endDate: day(f.endDate), status: f.status,
     registrationDeadline: moment(f.registrationDeadline), submissionDeadline: moment(f.submissionDeadline),
@@ -54,7 +61,7 @@ function toInput(f: FormState): HackathonInput {
 }
 
 /**
- * Only the fields this person changed. In a shared list someone else may have saved other
+ * Only the fields this person changed. In a team someone else may have saved other
  * fields since the drawer opened, and sending everything would overwrite their work.
  */
 function changedFields(before: HackathonInput, after: HackathonInput): HackathonInput {
@@ -72,6 +79,12 @@ export function HackathonDrawer({ hackathon, onClose }: { hackathon: Hackathon |
   const [confirmDelete, setConfirmDelete] = useState(false);
   const save = useSaveHackathon();
   const remove = useDeleteHackathon();
+  const spaces = useSpaces();
+  const [tab, setTab] = useState<Tab>('details');
+  // Fresh counts for the tab badges; the prop is a snapshot from when the drawer opened.
+  const live = useHackathons().data?.find((h) => h.id === hackathon?.id) ?? hackathon;
+  const team = hackathon?.spaceId ? (spaces.data?.find((s) => s.id === hackathon.spaceId) ?? null) : null;
+  const assignable = Boolean(hackathon && team);
   const busy = save.isPending || remove.isPending;
 
   // showModal gives a focus trap and Esc-to-close for free.
@@ -94,7 +107,7 @@ export function HackathonDrawer({ hackathon, onClose }: { hackathon: Hackathon |
       setError('Enter the prize amount as a number, without symbols.');
       return;
     }
-    const input = hackathon ? changedFields(toInput(toForm(hackathon)), toInput(form)) : toInput(form);
+    const input = hackathon ? changedFields(toInput(toForm(hackathon), assignable), toInput(form, assignable)) : toInput(form);
     if (hackathon && !Object.keys(input).length) return onClose();
     save.mutate({ id: hackathon?.id, input }, { onSuccess: onClose, onError: (e) => setError(e.message) });
   };
@@ -120,7 +133,39 @@ export function HackathonDrawer({ hackathon, onClose }: { hackathon: Hackathon |
           </button>
         </header>
 
-        <div className="drawer-body">
+        {hackathon && (
+          <div className="drawer-tabs" role="tablist" aria-label="Sections">
+            {([
+              ['details', 'Details', null],
+              ['tasks', 'Tasks', live?.taskCount ? `${live.tasksDone}/${live.taskCount}` : null],
+              ...(team ? [['comments', 'Comments', live?.commentCount || null]] : []),
+            ] as [Tab, string, string | number | null][]).map(([id, label, badge]) => (
+              <button type="button" role="tab" key={id} aria-selected={tab === id} className={tab === id ? 'is-on' : ''} onClick={() => setTab(id)}>
+                {label}{badge !== null && <b>{badge}</b>}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {hackathon && tab === 'tasks' && (
+          <div className="drawer-body">
+            <TasksPanel hackathonId={hackathon.id} members={team?.members ?? null} />
+          </div>
+        )}
+        {hackathon && tab === 'comments' && team && (
+          <div className="drawer-body">
+            <CommentsPanel hackathonId={hackathon.id} isOwner={team.role === 'OWNER'} />
+          </div>
+        )}
+
+        <div className="drawer-body" hidden={tab !== 'details'}>
+          {assignable && team && (
+            <fieldset>
+              <legend>Assigned to</legend>
+              <AssigneePicker members={team.members} value={form.assigneeIds} onChange={(ids) => set('assigneeIds', ids)} />
+              <p className="hint">Who is on this one. Their faces show on the board card.</p>
+            </fieldset>
+          )}
           <fieldset>
             <legend>Basics</legend>
             <label className="field" htmlFor="f-name">
@@ -266,7 +311,8 @@ export function HackathonDrawer({ hackathon, onClose }: { hackathon: Hackathon |
                 </button>
               ))}
             <span className="spacer" />
-            <button type="button" className="btn btn-quiet" onClick={onClose}>Cancel</button>
+            {tab !== 'details' && <span className="hint">Tasks and comments save as you go.</span>}
+            <button type="button" className="btn btn-quiet" onClick={onClose}>{tab === 'details' ? 'Cancel' : 'Close'}</button>
             <button type="submit" className="btn btn-ink" disabled={busy}>
               {save.isPending && <Spinner />}
               {save.isPending ? 'Saving' : hackathon ? 'Save changes' : 'Add hackathon'}

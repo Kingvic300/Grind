@@ -17,3 +17,15 @@ export function Countdown({ iso, prefix }: { iso: string; prefix?: string }) {
     </span>
   );
 }
+
+/** "Everyone / Assigned to me" switch, shown on team lists. */
+export function MineToggle({ mine, onChange, count }: { mine: boolean; onChange: (mine: boolean) => void; count: number }) {
+  return (
+    <div className="segmented" role="group" aria-label="Whose hackathons">
+      <button type="button" className={!mine ? 'is-on' : ''} aria-pressed={!mine} onClick={() => onChange(false)}>Everyone</button>
+      <button type="button" className={mine ? 'is-on' : ''} aria-pressed={mine} onClick={() => onChange(true)}>
+        Assigned to me <b>{count}</b>
+      </button>
+    </div>
+  );
+}

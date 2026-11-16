@@ -36,3 +36,6 @@ export const IconLink = () => <Icon size={16}><path d="M10 14a4 4 0 0 0 5.7 0l3-
 export const IconCompass = () => <Icon><circle cx="12" cy="12" r="8.5" /><path d="M15.5 8.5l-2 5-5 2 2-5z" /></Icon>;
 export const IconLogout = () => <Icon><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 8l-4 4 4 4M6 12h10" /></Icon>;
 export const IconChevronDown = () => <Icon size={16}><path d="M6 9l6 6 6-6" /></Icon>;
+export const IconTasks = () => <Icon size={15}><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" /></Icon>;
+export const IconComment = () => <Icon size={15}><path d="M5 5h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H10l-4 3v-3H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" /></Icon>;
+export const IconTrash = () => <Icon size={15}><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" /></Icon>;

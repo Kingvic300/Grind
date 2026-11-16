@@ -94,4 +94,11 @@ export class CreateHackathonDto {
   spaceId?: string | null;
 }
 
-export class UpdateHackathonDto extends PartialType(OmitType(CreateHackathonDto, ['spaceId'] as const)) {}
+export class UpdateHackathonDto extends PartialType(OmitType(CreateHackathonDto, ['spaceId'] as const)) {
+  /** Replaces the full set of assigned team members. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  assigneeIds?: string[];
+}

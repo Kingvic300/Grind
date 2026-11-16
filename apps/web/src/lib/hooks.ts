@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { API_URL, ApiError, api } from './api';
 import { useSpaceId } from './space';
-import type { DiscoverResult, Hackathon, HackathonInput, InvitePreview, Space, Stats, User, UserUpdate } from './types';
+import type { Activity, Comment, DiscoverResult, Hackathon, HackathonInput, InvitePreview, Space, Stats, Task, User, UserUpdate } from './types';
 
 const ME = ['me'];
 const HACKATHONS = ['hackathons'];
@@ -128,7 +128,7 @@ export function useDiscover() {
   return useQuery({ queryKey: ['discover'], queryFn: () => api<DiscoverResult>('/discover'), staleTime: 10 * 60_000 });
 }
 
-/** Shared lists the user is a member of. */
+/** Teams the user is in. */
 export function useSpaces() {
   return useQuery({ queryKey: SPACES, queryFn: () => api<Space[]>('/spaces') });
 }
@@ -156,7 +156,63 @@ export function useInvitePreview(code: string) {
   });
 }
 
-type LiveEvent = { type: 'hackathons'; spaceId: string | null } | { type: 'spaces' };
+/** Checklist items inside one hackathon. */
+export function useTasks(hackathonId: string) {
+  return useQuery({ queryKey: ['tasks', hackathonId], queryFn: () => api<Task[]>(`/hackathons/${hackathonId}/tasks`) });
+}
+
+export function useTaskActions(hackathonId: string) {
+  const client = useQueryClient();
+  const key = ['tasks', hackathonId];
+  const { spaceId } = useSpaceId();
+  const refresh = () => {
+    void client.invalidateQueries({ queryKey: key });
+    // Board cards show task progress.
+    void client.invalidateQueries({ queryKey: hackathonsKey(spaceId) });
+  };
+  return {
+    add: (body: { title: string; assigneeId?: string | null }) =>
+      api<Task>(`/hackathons/${hackathonId}/tasks`, { method: 'POST', body }).finally(refresh),
+    update: async (taskId: string, body: Partial<{ title: string; done: boolean; assigneeId: string | null }>) => {
+      // Tick boxes at once; the refetch puts things right if the server says no.
+      client.setQueryData<Task[]>(key, (list) => list?.map((t) => (t.id === taskId && body.done !== undefined ? { ...t, done: body.done } : t)));
+      return api<Task>(`/hackathons/${hackathonId}/tasks/${taskId}`, { method: 'PATCH', body }).finally(refresh);
+    },
+    remove: (taskId: string) => api<void>(`/hackathons/${hackathonId}/tasks/${taskId}`, { method: 'DELETE' }).finally(refresh),
+  };
+}
+
+export function useComments(hackathonId: string) {
+  return useQuery({ queryKey: ['comments', hackathonId], queryFn: () => api<Comment[]>(`/hackathons/${hackathonId}/comments`) });
+}
+
+export function useCommentActions(hackathonId: string) {
+  const client = useQueryClient();
+  const { spaceId } = useSpaceId();
+  const refresh = () => {
+    void client.invalidateQueries({ queryKey: ['comments', hackathonId] });
+    void client.invalidateQueries({ queryKey: hackathonsKey(spaceId) });
+  };
+  return {
+    add: (body: string) => api<Comment>(`/hackathons/${hackathonId}/comments`, { method: 'POST', body: { body } }).finally(refresh),
+    remove: (commentId: string) => api<void>(`/hackathons/${hackathonId}/comments/${commentId}`, { method: 'DELETE' }).finally(refresh),
+  };
+}
+
+/** Latest entries in a team's activity feed. */
+export function useActivity(spaceId: string) {
+  return useQuery({ queryKey: ['activity', spaceId], queryFn: () => api<Activity[]>(`/spaces/${spaceId}/activity`) });
+}
+
+/** Older activity entries, before the given time. */
+export const fetchOlderActivity = (spaceId: string, before: string) =>
+  api<Activity[]>(`/spaces/${spaceId}/activity?before=${encodeURIComponent(before)}`);
+
+type LiveEvent =
+  | { type: 'hackathons'; spaceId: string | null }
+  | { type: 'spaces' }
+  | { type: 'activity'; spaceId: string }
+  | { type: 'detail'; hackathonId: string };
 
 /**
  * Listens for changes made by other people (or other tabs) and refetches what changed,
@@ -176,7 +232,11 @@ export function useLiveUpdates(enabled: boolean) {
         return;
       }
       if (event.type === 'hackathons') void client.invalidateQueries({ queryKey: hackathonsKey(event.spaceId) });
-      else {
+      else if (event.type === 'activity') void client.invalidateQueries({ queryKey: ['activity', event.spaceId] });
+      else if (event.type === 'detail') {
+        void client.invalidateQueries({ queryKey: ['tasks', event.hackathonId] });
+        void client.invalidateQueries({ queryKey: ['comments', event.hackathonId] });
+      } else {
         // Membership changed: lists may have appeared or gone, so refetch both.
         void client.invalidateQueries({ queryKey: SPACES });
         void client.invalidateQueries({ queryKey: HACKATHONS });
@@ -191,6 +251,9 @@ export function useLiveUpdates(enabled: boolean) {
       dropped = false;
       void client.invalidateQueries({ queryKey: SPACES });
       void client.invalidateQueries({ queryKey: HACKATHONS });
+      void client.invalidateQueries({ queryKey: ['activity'] });
+      void client.invalidateQueries({ queryKey: ['tasks'] });
+      void client.invalidateQueries({ queryKey: ['comments'] });
     };
     return () => source.close();
   }, [enabled, client]);

@@ -208,7 +208,7 @@ export function DiscoverPage() {
   const [addingId, setAddingId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
-  const listName = spaceId ? (spaces.data?.find((s) => s.id === spaceId)?.name ?? 'shared list') : 'My hackathons';
+  const listName = spaceId ? (spaces.data?.find((s) => s.id === spaceId)?.name ?? 'team') : 'My hackathons';
   const inList = useMemo(() => new Set((mine.data ?? []).map((h) => linkKey(h.url))), [mine.data]);
   const all = useMemo(() => discover.data?.hackathons ?? [], [discover.data]);
 

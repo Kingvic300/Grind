@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import { EmptyState, PageHead, useShell } from '../../components/AppShell';
-import { Countdown, StatusPill } from '../../components/Bits';
+import { Countdown, MineToggle, StatusPill } from '../../components/Bits';
 import { IconSearch, IconTrophy } from '../../components/Icons';
 import { ListSkeleton } from '../../components/Loading';
-import { useHackathons } from '../../lib/hooks';
+import { Faces } from '../../components/TeamWork';
+import { useHackathons, useMe } from '../../lib/hooks';
+import { useSpaceId } from '../../lib/space';
 import { formatRange } from '../../lib/time';
 import { FORMAT_LABEL, STATUSES, STATUS_LABEL, type Hackathon, type Status } from '../../lib/types';
 
@@ -23,7 +25,12 @@ export function ListPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<Status | 'ALL'>('ALL');
   const [sort, setSort] = useState<Sort>('deadline');
-  const list = query.data ?? [];
+  const [mine, setMine] = useState(false);
+  const me = useMe();
+  const { spaceId } = useSpaceId();
+  const all = query.data ?? [];
+  const assignedToMe = all.filter((h) => h.assignees.some((a) => a.id === me.data?.id));
+  const list = spaceId && mine ? assignedToMe : all;
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -31,7 +38,7 @@ export function ListPage() {
       .filter((h) => status === 'ALL' || h.status === status)
       .filter((h) =>
         !q ||
-        [h.name, h.organizer, h.projectName, h.location, ...h.techStack, ...h.teammates]
+        [h.name, h.organizer, h.projectName, h.location, ...h.techStack, ...h.teammates, ...h.assignees.map((a) => a.name)]
           .some((v) => v?.toLowerCase().includes(q)),
       )
       .sort(SORTS[sort]);
@@ -42,8 +49,10 @@ export function ListPage() {
 
   return (
     <>
-      <PageHead title="Hackathons" sub="Everything you are tracking, in one list." />
-      {!list.length ? (
+      <PageHead title="Hackathons" sub={spaceId ? 'Everything your team is tracking, in one list.' : 'Everything you are tracking, in one list.'}>
+        {spaceId && <MineToggle mine={mine} onChange={setMine} count={assignedToMe.length} />}
+      </PageHead>
+      {!all.length ? (
         <EmptyState onAdd={() => openEditor()} />
       ) : (
         <>
@@ -91,6 +100,7 @@ export function ListPage() {
                     <th className="col-dates">Dates</th>
                     <th>Submission</th>
                     <th className="col-project">Project</th>
+                    {spaceId && <th>People</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -117,6 +127,7 @@ export function ListPage() {
                         {h.projectName ?? <span className="muted">No project yet</span>}
                         {h.won && <span className="win-badge"><IconTrophy />{h.placement ?? 'Won'}</span>}
                       </td>
+                      {spaceId && <td>{h.assignees.length ? <Faces people={h.assignees} max={4} /> : <span className="muted">No one</span>}</td>}
                     </tr>
                   ))}
                 </tbody>

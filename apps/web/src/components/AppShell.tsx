@@ -34,7 +34,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
     title: 'Explore',
     items: [
       { to: '/app/discover', label: 'Discover', short: 'Discover', icon: <IconCompass /> },
-      { to: '/app/sharing', label: 'Sharing', short: 'Share', icon: <IconUsers /> },
+      { to: '/app/team', label: 'Team', short: 'Team', icon: <IconUsers /> },
       // On wide screens Settings lives in the account row instead.
       { to: '/app/settings', label: 'Settings', short: 'Settings', icon: <IconSettings />, phoneOnly: true },
     ],

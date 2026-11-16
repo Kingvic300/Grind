@@ -3,6 +3,7 @@ import { SpaceRole } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { EventsService } from '../events/events.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ActivityService } from '../team/activity.service';
 
 /** 128 random bits. Anyone with the code can join, so it must not be guessable. */
 const newInviteCode = () => randomBytes(16).toString('base64url');
@@ -25,12 +26,13 @@ export class SpacesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly events: EventsService,
+    private readonly activity: ActivityService,
   ) {}
 
   /** Throws unless the user is a member. Returns the member row. */
   async requireMember(userId: string, spaceId: string) {
     const member = await this.prisma.spaceMember.findUnique({ where: { spaceId_userId: { spaceId, userId } } });
-    if (!member) throw new NotFoundException('That shared list does not exist, or you are not a member.');
+    if (!member) throw new NotFoundException('That team does not exist, or you are not in it.');
     return member;
   }
 
@@ -57,9 +59,11 @@ export class SpacesService {
     return this.toPublic(space, userId);
   }
 
+  /** Owner only. */
   async rename(userId: string, spaceId: string, name: string) {
-    await this.requireMember(userId, spaceId);
+    await this.requireOwner(userId, spaceId);
     const space = await this.prisma.space.update({ where: { id: spaceId }, data: { name }, include: SPACE_INCLUDE });
+    await this.activity.log(spaceId, userId, 'renamed', null, name);
     await this.notifyMembers(spaceId);
     return this.toPublic(space, userId);
   }
@@ -92,11 +96,11 @@ export class SpacesService {
   async join(userId: string, code: string) {
     const space = await this.prisma.space.findUnique({ where: { inviteCode: code } });
     if (!space) throw new NotFoundException('This invite link does not work. Ask for a new one.');
-    await this.prisma.spaceMember.upsert({
-      where: { spaceId_userId: { spaceId: space.id, userId } },
-      create: { spaceId: space.id, userId },
-      update: {},
-    });
+    const existing = await this.prisma.spaceMember.findUnique({ where: { spaceId_userId: { spaceId: space.id, userId } } });
+    if (!existing) {
+      await this.prisma.spaceMember.create({ data: { spaceId: space.id, userId } });
+      await this.activity.log(space.id, userId, 'joined');
+    }
     await this.notifyMembers(space.id);
     return { id: space.id };
   }
@@ -108,16 +112,24 @@ export class SpacesService {
   async removeMember(userId: string, spaceId: string, targetId: string) {
     const me = await this.requireMember(userId, spaceId);
     if (targetId !== userId && me.role !== SpaceRole.OWNER) {
-      throw new ForbiddenException('Only the owner of this list can remove people.');
+      throw new ForbiddenException('Only the team owner can remove people.');
     }
     const before = await this.memberIds(spaceId);
     const { count } = await this.prisma.spaceMember.deleteMany({ where: { spaceId, userId: targetId } });
-    if (!count) throw new NotFoundException('That person is not in this list.');
+    if (!count) throw new NotFoundException('That person is not in this team.');
+    // They can no longer see this team's hackathons, so drop their assignments there.
+    await this.prisma.hackathonAssignee.deleteMany({ where: { userId: targetId, hackathon: { spaceId } } });
+    await this.prisma.task.updateMany({ where: { assigneeId: targetId, hackathon: { spaceId } }, data: { assigneeId: null } });
 
     const rest = await this.prisma.spaceMember.findMany({ where: { spaceId }, orderBy: { joinedAt: 'asc' } });
     if (!rest.length) {
       await this.prisma.space.delete({ where: { id: spaceId } });
-    } else if (!rest.some((m) => m.role === SpaceRole.OWNER)) {
+    } else {
+      // detail holds the removed person's name; empty when they left by themselves.
+      const removed = targetId === userId ? null : await this.prisma.user.findUnique({ where: { id: targetId }, select: { name: true } });
+      await this.activity.log(spaceId, userId, 'left', null, removed?.name ?? null);
+    }
+    if (rest.length && !rest.some((m) => m.role === SpaceRole.OWNER)) {
       // The owner left, so the longest-standing member takes over.
       await this.prisma.spaceMember.update({
         where: { spaceId_userId: { spaceId, userId: rest[0].userId } },
@@ -137,7 +149,7 @@ export class SpacesService {
 
   private async requireOwner(userId: string, spaceId: string) {
     const member = await this.requireMember(userId, spaceId);
-    if (member.role !== SpaceRole.OWNER) throw new ForbiddenException('Only the owner of this list can do that.');
+    if (member.role !== SpaceRole.OWNER) throw new ForbiddenException('Only the team owner can do that.');
   }
 
   private async notifyMembers(spaceId: string) {

@@ -55,7 +55,7 @@ export function JoinPage() {
         )}
         {preview.data && (
           <>
-            <p className="join-kicker">Shared hackathon list</p>
+            <p className="join-kicker">Team invite</p>
             <h1>{preview.data.name}</h1>
             <p className="muted">
               {preview.data.memberNames.join(', ')} {preview.data.memberNames.length === 1 ? 'tracks' : 'track'}{' '}
@@ -65,12 +65,12 @@ export function JoinPage() {
             {error && <p className="form-error" role="alert">{error}</p>}
             {preview.data.alreadyMember ? (
               <button type="button" className="btn btn-accent btn-lg btn-block" onClick={() => open(preview.data.id)}>
-                You are in. Open the list
+                You are in. Open the team
               </button>
             ) : (
               <button type="button" className="btn btn-accent btn-lg btn-block" onClick={join} disabled={busy}>
                 {busy && <Spinner />}
-                {busy ? 'Joining' : 'Join list'}
+                {busy ? 'Joining' : 'Join team'}
               </button>
             )}
             <Link className="link" to="/app">Not now</Link>
