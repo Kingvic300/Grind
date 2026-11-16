@@ -2,14 +2,14 @@ import { useMemo, useState } from 'react';
 import { PageHead, useShell } from '../../components/AppShell';
 import { IconChevronLeft, IconChevronRight } from '../../components/Icons';
 import { CalendarSkeleton } from '../../components/Loading';
-import { useHackathons } from '../../lib/hooks';
-import { dateKey, formatRange, localDayKey } from '../../lib/time';
+import { useHackathons, useMe } from '../../lib/hooks';
+import { dateKey, formatClock, formatRange, localDayKey } from '../../lib/time';
 import { STATUSES, STATUS_LABEL, type Hackathon } from '../../lib/types';
 
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const WEEKDAYS_MON = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const WEEKDAYS_SUN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MAX_LANES = 3;
 const monthName = new Intl.DateTimeFormat(undefined, { month: 'long' });
-const timeFmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
 const weekdayFmt = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
 const shortMonth = new Intl.DateTimeFormat(undefined, { month: 'short' });
 
@@ -17,10 +17,10 @@ type Deadline = { hackathon: Hackathon; label: 'Register' | 'Submit'; at: string
 /** An event bar inside one week row: columns are 0 (Mon) to 6 (Sun). */
 type Bar = { hackathon: Hackathon; from: number; to: number; lane: number; continuesLeft: boolean; continuesRight: boolean };
 
-/** Weeks (Monday first) covering the month, without a trailing week that is all next month. */
-function monthWeeks(year: number, month: number): Date[][] {
+/** Weeks covering the month, without a trailing week that is all next month. */
+function monthWeeks(year: number, month: number, sundayFirst: boolean): Date[][] {
   const first = new Date(year, month, 1);
-  const offset = (first.getDay() + 6) % 7;
+  const offset = sundayFirst ? first.getDay() : (first.getDay() + 6) % 7;
   const weeks: Date[][] = [];
   for (let w = 0; w < 6; w++) {
     const week = Array.from({ length: 7 }, (_, d) => new Date(year, month, 1 - offset + w * 7 + d));
@@ -70,12 +70,15 @@ function deadlinesOf(list: Hackathon[]): Deadline[] {
 export function CalendarPage() {
   const { openEditor } = useShell();
   const query = useHackathons();
+  const sundayFirst = useMe().data?.weekStart === 'SUN';
+  const WEEKDAYS = sundayFirst ? WEEKDAYS_SUN : WEEKDAYS_MON;
+  const weekendCols = sundayFirst ? [0, 6] : [5, 6];
   const today = new Date();
   const todayKey = localDayKey(today);
   const [cursor, setCursor] = useState({ year: today.getFullYear(), month: today.getMonth() });
   const list = useMemo(() => query.data ?? [], [query.data]);
 
-  const weeks = useMemo(() => monthWeeks(cursor.year, cursor.month), [cursor]);
+  const weeks = useMemo(() => monthWeeks(cursor.year, cursor.month, sundayFirst), [cursor, sundayFirst]);
   const deadlines = useMemo(() => deadlinesOf(list), [list]);
 
   const shift = (delta: number) =>
@@ -128,7 +131,7 @@ export function CalendarPage() {
       </div>
 
       <div className="cal">
-        <div className="cal-weekdays">{WEEKDAYS.map((d, i) => <span key={d} className={i > 4 ? 'is-weekend' : ''}>{d}</span>)}</div>
+        <div className="cal-weekdays">{WEEKDAYS.map((d, i) => <span key={d} className={weekendCols.includes(i) ? 'is-weekend' : ''}>{d}</span>)}</div>
         {weeks.map((week) => {
           const keys = week.map(localDayKey);
           const bars = layoutWeek(week, list);
@@ -140,7 +143,7 @@ export function CalendarPage() {
                 {week.map((d, i) => (
                   <span
                     key={keys[i]}
-                    className={`${d.getMonth() !== cursor.month ? 'is-outside' : ''}${keys[i] === todayKey ? ' is-today' : ''}${i > 4 ? ' is-weekend' : ''}`}
+                    className={`${d.getMonth() !== cursor.month ? 'is-outside' : ''}${keys[i] === todayKey ? ' is-today' : ''}${weekendCols.includes(i) ? ' is-weekend' : ''}`}
                   />
                 ))}
               </div>
@@ -182,7 +185,7 @@ export function CalendarPage() {
                         className={`cal-deadline${x.at < today.toISOString() ? ' is-past' : ''}`}
                         style={{ gridColumn: i + 1, gridRow: firstFree + j }}
                         onClick={() => openEditor(x.hackathon)}
-                        title={`${x.label === 'Submit' ? 'Submission' : 'Registration'} closes ${timeFmt.format(new Date(x.at))}: ${x.hackathon.name}`}
+                        title={`${x.label === 'Submit' ? 'Submission' : 'Registration'} closes ${formatClock(x.at)}: ${x.hackathon.name}`}
                       >
                         <b>{x.label}</b>
                         <span>{x.hackathon.name}</span>
@@ -226,7 +229,7 @@ export function CalendarPage() {
                             <span>
                               {item.kind === 'event'
                                 ? formatRange(item.hackathon.startDate, item.hackathon.endDate)
-                                : `${item.kind === 'Submit' ? 'Submission' : 'Registration'} closes at ${timeFmt.format(new Date(item.at))}`}
+                                : `${item.kind === 'Submit' ? 'Submission' : 'Registration'} closes at ${formatClock(item.at)}`}
                             </span>
                           </span>
                           <span className={item.kind === 'event' ? 'tag' : 'tag tag-deadline'}>{item.kind === 'event' ? 'Event' : 'Deadline'}</span>

@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuthActions, useHackathons, useLiveUpdates, useMe, useSpaces } from '../lib/hooks';
 import { SpaceProvider, useSpaceId } from '../lib/space';
 import type { Hackathon } from '../lib/types';
+import { setClockPreference } from '../lib/time';
+import { Avatar } from './Avatar';
 import { HackathonDrawer } from './HackathonDrawer';
 import { IconBoard, IconCalendar, IconCompass, IconList, IconLogout, IconOverview, IconPlus, IconSettings, IconUsers } from './Icons';
 import { Logo } from './Logo';
@@ -49,6 +51,17 @@ function Shell() {
   const [editing, setEditing] = useState<Editing>(null);
   const openEditor = (hackathon?: Hackathon) => setEditing({ hackathon: hackathon ?? null });
   useLiveUpdates(Boolean(me.data));
+  if (me.data) setClockPreference(me.data.timeFormat);
+
+  // Open the user's default list once per visit, when they picked one in Settings.
+  const appliedDefault = useRef(false);
+  useEffect(() => {
+    if (appliedDefault.current || !me.data) return;
+    appliedDefault.current = true;
+    // null means "remember the last list I used", which SpaceProvider already does.
+    const preferred = me.data.defaultSpaceId;
+    if (preferred) setSpaceId(preferred === 'private' ? null : preferred);
+  }, [me.data, setSpaceId]);
 
   // The remembered list may be gone (left, removed, or deleted). Fall back to the private list.
   useEffect(() => {
@@ -91,7 +104,7 @@ function Shell() {
         <NextUp onOpen={openEditor} />
 
         <div className="shell-user">
-          <span className="avatar" aria-hidden="true">{me.data?.name.slice(0, 1).toUpperCase()}</span>
+          <Avatar person={me.data} />
           <span className="shell-user-text">
             <strong>{me.data?.name}</strong>
             <span>{me.data?.email}</span>

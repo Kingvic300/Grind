@@ -17,7 +17,23 @@ export function toLocalInput(iso: string | null): string {
 
 const dayFmt = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
 const dayYearFmt = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-const momentFmt = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+export type ClockPref = 'auto' | '12h' | '24h';
+const hour12Of = (pref: ClockPref) => (pref === 'auto' ? undefined : pref === '12h');
+let momentFmt = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+let clockFmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
+let clockPref: ClockPref = 'auto';
+
+/** Applies the user's 12 or 24 hour setting to every time Grind shows. */
+export function setClockPreference(pref: ClockPref) {
+  if (pref === clockPref) return;
+  clockPref = pref;
+  const hour12 = hour12Of(pref);
+  momentFmt = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12 });
+  clockFmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', hour12 });
+}
+
+/** "5:00 PM" or "17:00", following the user's setting. */
+export const formatClock = (iso: string) => clockFmt.format(new Date(iso));
 
 /** "Nov 20 to Nov 22, 2026" for an event's start and end dates. */
 export function formatRange(start: string | null, end: string | null): string {

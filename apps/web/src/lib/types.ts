@@ -18,17 +18,49 @@ export const FORMAT_LABEL: Record<Format, string> = {
   HYBRID: 'Hybrid',
 };
 
-export type User = {
+export const AVATAR_COLORS = ['ember', 'violet', 'blue', 'green', 'ink', 'rose'] as const;
+export type AvatarColor = (typeof AVATAR_COLORS)[number];
+
+/** What one person shows to others: in the sidebar, shared lists and Settings. */
+export type Profile = {
   id: string;
-  email: string;
   name: string;
-  emailReminders: boolean;
-  createdAt: string;
+  avatarUrl?: string | null;
+  avatarColor?: string | null;
+  bio?: string | null;
+  githubUrl?: string | null;
+  linkedinUrl?: string | null;
+  websiteUrl?: string | null;
+  xUrl?: string | null;
+  skills?: string[];
 };
+
+export type User = Profile & {
+  email: string;
+  createdAt: string;
+  skills: string[];
+  emailReminders: boolean;
+  remindSubmission3d: boolean;
+  remindSubmission1d: boolean;
+  remindRegistration1d: boolean;
+  weeklyDigest: boolean;
+  interestKind: 'any' | 'web3' | 'web2';
+  interestTopics: string[];
+  interestStack: string[];
+  interestFormat: Format | null;
+  defaultSpaceId: string | null;
+  weekStart: 'MON' | 'SUN';
+  timeFormat: 'auto' | '12h' | '24h';
+  calendarFeed: boolean;
+};
+
+export type UserUpdate = Partial<Omit<User, 'id' | 'email' | 'createdAt' | 'calendarFeed'>>;
+
+export type Stats = { tracked: number; submitted: number; wins: number; prizeMoney: number; sharedLists: number };
 
 export type Person = { id: string; name: string };
 
-export type SpaceMember = Person & { email: string; role: 'OWNER' | 'MEMBER'; joinedAt: string };
+export type SpaceMember = Profile & { email: string; role: 'OWNER' | 'MEMBER'; joinedAt: string };
 
 /** A shared hackathon list. */
 export type Space = {
@@ -131,3 +163,30 @@ export type DiscoverResult = {
   sources: { source: Source; label: string; ok: boolean; count: number; error?: string }[];
   hackathons: Listing[];
 };
+
+/** Tech the Discover classifier knows, for the interests picker. Keep in step with the API. */
+export const STACK_NAMES = [
+  'Python', 'JavaScript', 'TypeScript', 'React', 'Next.js', 'Node.js', 'Vue', 'Rust', 'Go', 'Java', 'Kotlin', 'Swift', 'Flutter',
+  'React Native', 'C++', 'Solidity', 'Move', 'Cairo', 'Foundry', 'Hardhat', 'Ethereum', 'Solana', 'Polygon', 'Arbitrum', 'Starknet',
+  'Sui', 'Aptos', 'Chainlink', 'IPFS', 'OpenAI', 'Gemini', 'Claude', 'LangChain', 'Hugging Face', 'TensorFlow', 'PyTorch', 'AWS',
+  'Google Cloud', 'Azure', 'Firebase', 'Supabase', 'MongoDB', 'PostgreSQL', 'Docker', 'Kubernetes', 'Unity', 'Unreal', 'Three.js',
+  'Figma', 'Arduino', 'Raspberry Pi',
+] as const;
+
+type Interests = Pick<User, 'interestKind' | 'interestTopics' | 'interestStack' | 'interestFormat'>;
+
+export const hasInterests = (u: Interests) =>
+  u.interestKind !== 'any' || u.interestTopics.length > 0 || u.interestStack.length > 0 || Boolean(u.interestFormat);
+
+/** True when a Discover listing fits the user's saved interests. Mirrors the API digest rule. */
+export function matchesInterests(h: Listing, u: Interests): boolean {
+  if (!hasInterests(u)) return false;
+  const web3 = h.categories.includes('web3');
+  if (u.interestKind === 'web3' && !web3) return false;
+  if (u.interestKind === 'web2' && web3) return false;
+  if (u.interestFormat && h.format !== u.interestFormat) return false;
+  const wantsTopics = u.interestTopics.length > 0;
+  const wantsStack = u.interestStack.length > 0;
+  if (!wantsTopics && !wantsStack) return true;
+  return (wantsTopics && u.interestTopics.some((t) => (h.categories as string[]).includes(t))) || (wantsStack && u.interestStack.some((s) => h.stack.includes(s)));
+}

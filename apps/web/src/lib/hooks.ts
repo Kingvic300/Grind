@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { API_URL, ApiError, api } from './api';
 import { useSpaceId } from './space';
-import type { DiscoverResult, Hackathon, HackathonInput, InvitePreview, Space, User } from './types';
+import type { DiscoverResult, Hackathon, HackathonInput, InvitePreview, Space, Stats, User, UserUpdate } from './types';
 
 const ME = ['me'];
 const HACKATHONS = ['hackathons'];
@@ -43,8 +43,41 @@ export function useAuthActions() {
       client.clear();
       client.setQueryData(ME, null);
     },
-    updateProfile: (body: { name?: string; emailReminders?: boolean }) =>
-      api<User>('/auth/me', { method: 'PATCH', body }).then((user) => client.setQueryData(ME, user)),
+    updateProfile: (body: UserUpdate) =>
+      api<User>('/auth/me', { method: 'PATCH', body }).then((user) => {
+        client.setQueryData(ME, user);
+        // Names and photos show inside shared lists too.
+        void client.invalidateQueries({ queryKey: ['spaces'] });
+        return user;
+      }),
+    changePassword: (body: { currentPassword: string; newPassword: string }) =>
+      api<User>('/auth/password', { method: 'POST', body }).then((user) => client.setQueryData(ME, user)),
+    signOutOthers: () => api<User>('/auth/sign-out-others', { method: 'POST' }).then((user) => client.setQueryData(ME, user)),
+    exportData: () => api<Record<string, unknown>>('/auth/me/export'),
+    deleteAccount: async (password: string) => {
+      await api<void>('/auth/me/delete', { method: 'POST', body: { password } });
+      client.clear();
+      client.setQueryData(ME, null);
+    },
+  };
+}
+
+export function useStats() {
+  return useQuery({ queryKey: ['stats'], queryFn: () => api<Stats>('/auth/me/stats') });
+}
+
+/** The private calendar feed link. Null token means the feed is off. */
+export function useCalendarFeed() {
+  const client = useQueryClient();
+  const query = useQuery({ queryKey: ['calendar-feed'], queryFn: () => api<{ token: string | null }>('/auth/me/calendar') });
+  const set = (data: { token: string | null }) => {
+    client.setQueryData(['calendar-feed'], data);
+    void client.invalidateQueries({ queryKey: ME });
+  };
+  return {
+    query,
+    rotate: () => api<{ token: string }>('/auth/me/calendar', { method: 'POST' }).then(set),
+    disable: () => api<void>('/auth/me/calendar', { method: 'DELETE' }).then(() => set({ token: null })),
   };
 }
 

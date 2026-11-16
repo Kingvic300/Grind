@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module';
+import { CalendarModule } from './calendar/calendar.module';
 import { DiscoverModule } from './discover/discover.module';
 import { EventsModule } from './events/events.module';
 import { HackathonsModule } from './hackathons/hackathons.module';
@@ -22,6 +23,7 @@ import { SpacesModule } from './spaces/spaces.module';
     SpacesModule,
     HackathonsModule,
     DiscoverModule,
+    CalendarModule,
     RemindersModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

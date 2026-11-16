@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { PageHead } from '../../components/AppShell';
 import { IconCheck, IconPlus, IconSearch } from '../../components/Icons';
 import { CardsSkeleton, Spinner } from '../../components/Loading';
-import { useDiscover, useHackathons, useNow, useSaveHackathon, useSpaces } from '../../lib/hooks';
+import { useDiscover, useHackathons, useMe, useNow, useSaveHackathon, useSpaces } from '../../lib/hooks';
 import { useSpaceId } from '../../lib/space';
 import { formatMoment, formatRange } from '../../lib/time';
 import {
@@ -10,6 +11,8 @@ import {
   FORMATS,
   FORMAT_LABEL,
   SOURCES,
+  hasInterests,
+  matchesInterests,
   type Category,
   type Format,
   type HackathonInput,
@@ -98,7 +101,7 @@ function DeadlineTag({ closing, now }: { closing: Closing | null; now: number })
   );
 }
 
-function ListingCard({ h, added, onAdd, busy, now }: { h: Listing; added: boolean; onAdd: () => void; busy: boolean; now: number }) {
+function ListingCard({ h, added, onAdd, busy, now, match }: { h: Listing; added: boolean; onAdd: () => void; busy: boolean; now: number; match: boolean }) {
   const web3 = h.categories.includes('web3');
   return (
     <article className="listing">
@@ -112,6 +115,7 @@ function ListingCard({ h, added, onAdd, busy, now }: { h: Listing; added: boolea
           <span className="listing-badges">
             <span className={`source source-${h.source}`}>{SOURCE_LABEL[h.source]}</span>
             <span className={`kind kind-${web3 ? 'web3' : 'web2'}`}>{web3 ? 'Web3' : 'Web2'}</span>
+            {match && <span className="kind kind-match">Matches you</span>}
           </span>
           <h2>
             <a href={h.url} target="_blank" rel="noopener noreferrer">{h.name}</a>
@@ -182,6 +186,11 @@ function ChipRow<T extends string>({
 
 export function DiscoverPage() {
   const discover = useDiscover();
+  const me = useMe();
+  const interests = me.data && hasInterests(me.data) ? me.data : null;
+  // "For you" starts on when the user saved interests in Settings.
+  const [forYou, setForYou] = useState<boolean | null>(null);
+  const showForYou = forYou ?? Boolean(interests);
   const mine = useHackathons();
   const spaces = useSpaces();
   const { spaceId } = useSpaceId();
@@ -211,6 +220,7 @@ export function DiscoverPage() {
 
   // Every filter except the one being counted, so chip counts show what clicking would give.
   const matches = (h: Listing, skip?: 'kind' | 'topics' | 'stacks' | 'sources') => {
+    if (showForYou && interests && !matchesInterests(h, interests)) return false;
     const q = search.trim().toLowerCase();
     if (q && ![h.name, h.organizer, h.location, h.description, ...h.tags, ...h.stack].some((v) => v?.toLowerCase().includes(q))) return false;
     if (skip !== 'kind' && kind !== 'all' && h.categories.includes('web3') !== (kind === 'web3')) return false;
@@ -296,6 +306,18 @@ export function DiscoverPage() {
         </label>
       </div>
 
+      <div className="foryou">
+        <div className="segmented" role="group" aria-label="Show">
+          <button type="button" className={!showForYou ? 'is-on' : ''} aria-pressed={!showForYou} onClick={() => setForYou(false)}>
+            Everything <b>{all.length}</b>
+          </button>
+          <button type="button" className={showForYou ? 'is-on' : ''} aria-pressed={showForYou} onClick={() => setForYou(true)} disabled={!interests}>
+            For you <b>{interests ? all.filter((h) => matchesInterests(h, interests)).length : 0}</b>
+          </button>
+        </div>
+        <Link to="/app/settings?tab=discover" className="link">{interests ? 'Edit your interests' : 'Set your interests to get a For you list'}</Link>
+      </div>
+
       <section className="panel discover-filters" aria-label="Filters">
         <div className="filter-row">
           <span className="filter-label">Kind</span>
@@ -370,7 +392,7 @@ export function DiscoverPage() {
       {rows.length ? (
         <div className="listings">
           {rows.map((h) => (
-            <ListingCard key={h.id} h={h} now={now} added={inList.has(linkKey(h.url))} busy={addingId === h.id} onAdd={() => add(h)} />
+            <ListingCard key={h.id} h={h} now={now} match={Boolean(interests && matchesInterests(h, interests))} added={inList.has(linkKey(h.url))} busy={addingId === h.id} onAdd={() => add(h)} />
           ))}
         </div>
       ) : (

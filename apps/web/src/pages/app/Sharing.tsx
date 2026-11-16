@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import { PageHead } from '../../components/AppShell';
+import { Avatar } from '../../components/Avatar';
 import { IconLink } from '../../components/Icons';
 import { PanelsSkeleton, Spinner } from '../../components/Loading';
 import { useMe, useSpaceActions, useSpaces } from '../../lib/hooks';
@@ -79,10 +80,18 @@ function SpacePanel({ space, myId }: { space: Space; myId: string }) {
         <ul>
           {space.members.map((m) => (
             <li key={m.id}>
-              <span className="avatar" aria-hidden="true">{m.name.slice(0, 1).toUpperCase()}</span>
+              <Avatar person={m} size={38} />
               <span className="member-text">
                 <strong>{m.name}{m.id === myId ? ' (you)' : ''}</strong>
-                <span>{m.email}</span>
+                <span>{m.bio || m.email}</span>
+                {(m.skills?.length || m.githubUrl || m.linkedinUrl || m.websiteUrl || m.xUrl) && (
+                  <span className="member-extra">
+                    {m.skills?.slice(0, 4).map((s) => <span key={s} className="chip">{s}</span>)}
+                    {[['GitHub', m.githubUrl], ['LinkedIn', m.linkedinUrl], ['Website', m.websiteUrl], ['X', m.xUrl]]
+                      .filter(([, href]) => href)
+                      .map(([label, href]) => <a key={label} href={href as string} target="_blank" rel="noopener noreferrer">{label}</a>)}
+                  </span>
+                )}
               </span>
               {m.role === 'OWNER' && <span className="tag">Owner</span>}
               {owner && m.id !== myId && (

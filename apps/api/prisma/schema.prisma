@@ -23,15 +23,49 @@ enum Format {
 }
 
 model User {
-  id             String        @id @default(cuid())
-  email          String        @unique
+  id             String   @id @default(cuid())
+  email          String   @unique
   passwordHash   String
   name           String
-  emailReminders Boolean       @default(true)
-  createdAt      DateTime      @default(now())
-  hackathons     Hackathon[]
-  edited         Hackathon[]   @relation("HackathonEditor")
-  memberships    SpaceMember[]
+  emailReminders Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  // Raised on password change or "sign out other devices". Sessions with an older value stop working.
+  tokenVersion Int @default(0)
+
+  // Profile. avatarUrl holds a small resized image as a data: URL, so no file storage is needed.
+  avatarUrl   String?
+  avatarColor String?
+  bio         String?
+  githubUrl   String?
+  linkedinUrl String?
+  websiteUrl  String?
+  xUrl        String?
+  skills      String[] @default([])
+
+  // Which reminder emails to send. emailReminders is the master switch.
+  remindSubmission3d   Boolean   @default(true)
+  remindSubmission1d   Boolean   @default(true)
+  remindRegistration1d Boolean   @default(true)
+  weeklyDigest         Boolean   @default(false)
+  lastDigestAt         DateTime?
+
+  // Discover interests: pre-filter Discover and pick matches for the digest.
+  interestKind   String   @default("any")
+  interestTopics String[] @default([])
+  interestStack  String[] @default([])
+  interestFormat String?
+
+  // App preferences.
+  defaultSpaceId String?
+  weekStart      String  @default("MON")
+  timeFormat     String  @default("auto")
+
+  // Secret for the private calendar feed (.ics). Null when the feed is off.
+  calendarToken String?       @unique
+  hackathons    Hackathon[]
+  edited        Hackathon[]   @relation("HackathonEditor")
+  memberships   SpaceMember[]
 }
 
 enum SpaceRole {

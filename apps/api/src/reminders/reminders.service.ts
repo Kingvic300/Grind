@@ -18,14 +18,19 @@ type Rule = {
   label: string;
   /** Kinds to mark as sent too, so an earlier reminder is not sent after a later one. */
   supersedes: string[];
+  /** The user setting that turns this reminder on. */
+  setting: 'remindSubmission3d' | 'remindSubmission1d' | 'remindRegistration1d';
 };
+
+/** Who gets a reminder email, and which ones they want. */
+const PERSON = { email: true, emailReminders: true, remindSubmission3d: true, remindSubmission1d: true, remindRegistration1d: true } as const;
 
 const OPEN: Status[] = [Status.INTERESTED, Status.REGISTERED, Status.BUILDING];
 
 const RULES: Rule[] = [
-  { kind: 'submission:24h', field: 'submissionDeadline', minHours: 0, maxHours: 24, statuses: OPEN, label: 'Submission closes', supersedes: ['submission:72h'] },
-  { kind: 'submission:72h', field: 'submissionDeadline', minHours: 24, maxHours: 72, statuses: OPEN, label: 'Submission closes', supersedes: [] },
-  { kind: 'registration:24h', field: 'registrationDeadline', minHours: 0, maxHours: 24, statuses: [Status.INTERESTED], label: 'Registration closes', supersedes: [] },
+  { kind: 'submission:24h', field: 'submissionDeadline', minHours: 0, maxHours: 24, statuses: OPEN, label: 'Submission closes', supersedes: ['submission:72h'], setting: 'remindSubmission1d' },
+  { kind: 'submission:72h', field: 'submissionDeadline', minHours: 24, maxHours: 72, statuses: OPEN, label: 'Submission closes', supersedes: [], setting: 'remindSubmission3d' },
+  { kind: 'registration:24h', field: 'registrationDeadline', minHours: 0, maxHours: 24, statuses: [Status.INTERESTED], label: 'Registration closes', supersedes: [], setting: 'remindRegistration1d' },
 ];
 
 const escapeHtml = (s: string) =>
@@ -70,8 +75,8 @@ export class RemindersService {
         reminders: { none: { kind: rule.kind } },
       },
       include: {
-        user: { select: { email: true, emailReminders: true } },
-        space: { select: { name: true, members: { select: { user: { select: { email: true, emailReminders: true } } } } } },
+        user: { select: PERSON },
+        space: { select: { name: true, members: { select: { user: { select: PERSON } } } } },
       },
       take: 200,
     });
@@ -80,7 +85,9 @@ export class RemindersService {
     for (const hackathon of due) {
       // Shared entries go to every member of the list. Private entries to their owner.
       const people = hackathon.space ? hackathon.space.members.map((m) => m.user) : [hackathon.user];
-      const recipients = people.filter((p) => p.emailReminders).map((p) => p.email);
+      const recipients = people
+        .filter((p) => p.emailReminders && p[rule.setting])
+        .map((p) => p.email);
       const deadline = hackathon[rule.field] as Date;
       const left = timeLeft(deadline.getTime() - now);
       const when = deadline.toUTCString();

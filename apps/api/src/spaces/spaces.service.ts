@@ -7,10 +7,15 @@ import { PrismaService } from '../prisma/prisma.service';
 /** 128 random bits. Anyone with the code can join, so it must not be guessable. */
 const newInviteCode = () => randomBytes(16).toString('base64url');
 
+/** What members of a shared list see about each other. */
+const MEMBER_FIELDS = {
+  id: true, name: true, email: true, avatarUrl: true, avatarColor: true, bio: true, githubUrl: true, linkedinUrl: true, websiteUrl: true, xUrl: true, skills: true,
+} as const;
+
 const SPACE_INCLUDE = {
   members: {
     orderBy: { joinedAt: 'asc' },
-    include: { user: { select: { id: true, name: true, email: true } } },
+    include: { user: { select: MEMBER_FIELDS } },
   },
   _count: { select: { hackathons: true } },
 } as const;
@@ -145,7 +150,7 @@ export class SpacesService {
       name: string;
       inviteCode: string;
       createdAt: Date;
-      members: { role: SpaceRole; userId: string; joinedAt: Date; user: { id: string; name: string; email: string } }[];
+      members: { role: SpaceRole; userId: string; joinedAt: Date; user: Record<keyof typeof MEMBER_FIELDS, unknown> & { id: string; name: string } }[];
       _count: { hackathons: number };
     },
     userId: string,
