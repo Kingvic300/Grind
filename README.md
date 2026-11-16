@@ -45,12 +45,34 @@ pnpm dev
 all outgoing email) on http://localhost:8025. Point both database URLs at
 `postgresql://grind:grind@localhost:5432/grind` and leave `BREVO_API_KEY` empty.
 
+## Shared lists
+
+Every user has a private list. On the Sharing page a user can also create shared lists. Each
+shared list has an invite link (`/join/<code>`). Anyone who opens the link and logs in joins
+the list, and every member can add, edit and delete its hackathons. The owner can remove
+members and make a new link, which stops the old one working.
+
+Changes reach other open browsers at once through Server-Sent Events (`GET /api/events`).
+The event bus is in memory, so this works with one API instance. Several instances would
+need a shared bus such as Postgres `LISTEN/NOTIFY`.
+
+## Discover
+
+The Discover page lists open and upcoming hackathons from Devpost, DoraHacks, Devfolio and
+MLH, and adds any of them to the list you are viewing in one click. The API fetches them
+server side (`GET /api/discover`, login required) and caches the result for 30 minutes.
+None of these sites offer an official public API: Grind reads the endpoints their own pages
+use (and the schema.org markup on MLH's events page), so a site change can break one
+source. A broken source shows a notice and the others still load.
+
 ## How reminders work
 
 Every 10 minutes the API looks for deadlines that are close and sends each reminder once:
 
 - 3 days and 1 day before a submission closes, while the hackathon is not yet submitted
 - 1 day before a registration closes, while the hackathon is still marked Interested
+
+Reminders for a shared list go to every member who has reminders on.
 
 Users can turn the emails off in Settings.
 

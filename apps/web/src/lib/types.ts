@@ -26,8 +26,36 @@ export type User = {
   createdAt: string;
 };
 
+export type Person = { id: string; name: string };
+
+export type SpaceMember = Person & { email: string; role: 'OWNER' | 'MEMBER'; joinedAt: string };
+
+/** A shared hackathon list. */
+export type Space = {
+  id: string;
+  name: string;
+  inviteCode: string;
+  createdAt: string;
+  hackathonCount: number;
+  role: 'OWNER' | 'MEMBER';
+  members: SpaceMember[];
+};
+
+export type InvitePreview = {
+  id: string;
+  name: string;
+  memberNames: string[];
+  hackathonCount: number;
+  alreadyMember: boolean;
+};
+
 export type Hackathon = {
   id: string;
+  spaceId: string | null;
+  /** Who added it. */
+  user: Person;
+  /** Who saved it last. Null when that account no longer exists. */
+  updatedBy: Person | null;
   name: string;
   organizer: string | null;
   url: string | null;
@@ -55,4 +83,31 @@ export type Hackathon = {
 };
 
 /** The fields a client may send when creating or editing a hackathon. */
-export type HackathonInput = Partial<Omit<Hackathon, 'id' | 'createdAt' | 'updatedAt'>>;
+export type HackathonInput = Partial<Omit<Hackathon, 'id' | 'spaceId' | 'user' | 'updatedBy' | 'createdAt' | 'updatedAt'>>;
+
+export const SOURCES = ['devpost', 'dorahacks', 'devfolio', 'mlh'] as const;
+export type Source = (typeof SOURCES)[number];
+
+/** A hackathon found on a public site, not yet in any Grind list. */
+export type Listing = {
+  id: string;
+  source: Source;
+  name: string;
+  organizer: string | null;
+  url: string;
+  format: Format;
+  location: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  registrationDeadline: string | null;
+  submissionDeadline: string | null;
+  prize: string | null;
+  tags: string[];
+  imageUrl: string | null;
+};
+
+export type DiscoverResult = {
+  fetchedAt: string;
+  sources: { source: Source; label: string; ok: boolean; count: number; error?: string }[];
+  hackathons: Listing[];
+};

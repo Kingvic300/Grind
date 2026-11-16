@@ -4,9 +4,12 @@ import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module';
+import { DiscoverModule } from './discover/discover.module';
+import { EventsModule } from './events/events.module';
 import { HackathonsModule } from './hackathons/hackathons.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RemindersModule } from './reminders/reminders.module';
+import { SpacesModule } from './spaces/spaces.module';
 
 @Module({
   imports: [
@@ -15,7 +18,10 @@ import { RemindersModule } from './reminders/reminders.module';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 200 }]),
     PrismaModule,
     AuthModule,
+    EventsModule,
+    SpacesModule,
     HackathonsModule,
+    DiscoverModule,
     RemindersModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

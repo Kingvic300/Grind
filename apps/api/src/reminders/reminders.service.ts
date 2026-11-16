@@ -67,28 +67,38 @@ export class RemindersService {
       where: {
         [rule.field]: { gt: new Date(now + rule.minHours * HOUR), lte: new Date(now + rule.maxHours * HOUR) },
         status: { in: rule.statuses },
-        user: { emailReminders: true },
         reminders: { none: { kind: rule.kind } },
       },
-      include: { user: true },
+      include: {
+        user: { select: { email: true, emailReminders: true } },
+        space: { select: { name: true, members: { select: { user: { select: { email: true, emailReminders: true } } } } } },
+      },
       take: 200,
     });
 
     const appUrl = this.config.get<string>('APP_URL') ?? 'http://localhost:5173';
     for (const hackathon of due) {
+      // Shared entries go to every member of the list. Private entries to their owner.
+      const people = hackathon.space ? hackathon.space.members.map((m) => m.user) : [hackathon.user];
+      const recipients = people.filter((p) => p.emailReminders).map((p) => p.email);
       const deadline = hackathon[rule.field] as Date;
       const left = timeLeft(deadline.getTime() - now);
       const when = deadline.toUTCString();
       const subject = `${rule.label} in ${left}: ${hackathon.name}`;
       const text = `${rule.label} in ${left} for ${hackathon.name}.\n\nDeadline: ${when}\n\nOpen Grind: ${appUrl}/app\n\nTurn these emails off in Settings.`;
       const html = `<div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#12141C">
-<p style="font-size:13px;color:#5F6578;margin:0 0 8px">${escapeHtml(hackathon.name)}</p>
+<p style="font-size:13px;color:#5F6578;margin:0 0 8px">${escapeHtml(hackathon.name)}${hackathon.space ? ` in ${escapeHtml(hackathon.space.name)}` : ''}</p>
 <h1 style="font-size:24px;line-height:1.2;margin:0 0 12px">${rule.label} in ${left}</h1>
 <p style="margin:0 0 20px;color:#5F6578">Deadline: ${when}</p>
 <a href="${appUrl}/app" style="display:inline-block;background:#F2541B;color:#fff;text-decoration:none;font-weight:600;padding:10px 16px;border-radius:10px">Open Grind</a>
 <p style="font-size:12px;color:#5F6578;margin:24px 0 0">Turn these emails off in Settings.</p></div>`;
 
-      if (!(await this.mail.send(hackathon.user.email, subject, text, html))) continue;
+      // Log the reminder once any recipient got it, so a single bad address cannot cause repeat sends.
+      let sent = !recipients.length;
+      for (const to of recipients) {
+        if (await this.mail.send(to, subject, text, html)) sent = true;
+      }
+      if (!sent) continue;
       await this.prisma.reminderLog.createMany({
         data: [rule.kind, ...rule.supersedes].map((kind) => ({ hackathonId: hackathon.id, kind })),
         skipDuplicates: true,

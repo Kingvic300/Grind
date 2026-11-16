@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
@@ -23,19 +23,53 @@ enum Format {
 }
 
 model User {
-  id             String      @id @default(cuid())
-  email          String      @unique
+  id             String        @id @default(cuid())
+  email          String        @unique
   passwordHash   String
   name           String
-  emailReminders Boolean     @default(true)
-  createdAt      DateTime    @default(now())
+  emailReminders Boolean       @default(true)
+  createdAt      DateTime      @default(now())
   hackathons     Hackathon[]
+  edited         Hackathon[]   @relation("HackathonEditor")
+  memberships    SpaceMember[]
+}
+
+enum SpaceRole {
+  OWNER
+  MEMBER
+}
+
+// A shared hackathon list. Members join through the invite link and can all edit.
+model Space {
+  id         String        @id @default(cuid())
+  name       String
+  inviteCode String        @unique
+  createdAt  DateTime      @default(now())
+  members    SpaceMember[]
+  hackathons Hackathon[]
+}
+
+model SpaceMember {
+  spaceId  String
+  space    Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     SpaceRole @default(MEMBER)
+  joinedAt DateTime  @default(now())
+
+  @@id([spaceId, userId])
+  @@index([userId])
 }
 
 model Hackathon {
-  id     String @id @default(cuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String  @id @default(cuid())
+  userId      String
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Null for the user's private list. Set for a hackathon in a shared list.
+  spaceId     String?
+  space       Space?  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  updatedById String?
+  updatedBy   User?   @relation("HackathonEditor", fields: [updatedById], references: [id], onDelete: SetNull)
 
   // Basics
   name      String
@@ -72,6 +106,7 @@ model Hackathon {
   reminders ReminderLog[]
 
   @@index([userId, status])
+  @@index([spaceId])
 }
 
 // One row per reminder email sent, so a reminder is never sent twice.

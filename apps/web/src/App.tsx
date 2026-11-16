@@ -5,9 +5,12 @@ import { MarketingLayout } from './components/MarketingLayout';
 import { useMe } from './lib/hooks';
 import { BoardPage } from './pages/app/Board';
 import { CalendarPage } from './pages/app/Calendar';
+import { DiscoverPage } from './pages/app/Discover';
 import { ListPage } from './pages/app/List';
 import { OverviewPage } from './pages/app/Overview';
 import { SettingsPage } from './pages/app/Settings';
+import { SharingPage } from './pages/app/Sharing';
+import { JoinPage } from './pages/Join';
 import { AboutPage } from './pages/marketing/About';
 import { AuthPage } from './pages/marketing/Auth';
 import { FeaturesPage } from './pages/marketing/Features';
@@ -45,11 +48,14 @@ export function App() {
         <Route path="login" element={<AuthPage mode="login" />} />
         <Route path="signup" element={<AuthPage mode="signup" />} />
         <Route element={<RequireAuth />}>
+          <Route path="join/:code" element={<JoinPage />} />
           <Route path="app" element={<AppShell />}>
             <Route index element={<OverviewPage />} />
             <Route path="hackathons" element={<ListPage />} />
             <Route path="board" element={<BoardPage />} />
             <Route path="calendar" element={<CalendarPage />} />
+            <Route path="discover" element={<DiscoverPage />} />
+            <Route path="sharing" element={<SharingPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Route>

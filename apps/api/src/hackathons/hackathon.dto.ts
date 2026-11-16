@@ -1,4 +1,4 @@
-import { PartialType } from '@nestjs/mapped-types';
+import { OmitType, PartialType } from '@nestjs/mapped-types';
 import { Format, Status } from '@prisma/client';
 import {
   ArrayMaxSize,
@@ -88,6 +88,10 @@ export class CreateHackathonDto {
 
   @IsOptional() @IsString() @MaxLength(5000)
   notes?: string | null;
+
+  /** Shared list to add the hackathon to. Leave out for the private list. Set only on create. */
+  @IsOptional() @IsString() @MaxLength(40)
+  spaceId?: string | null;
 }
 
-export class UpdateHackathonDto extends PartialType(CreateHackathonDto) {}
+export class UpdateHackathonDto extends PartialType(OmitType(CreateHackathonDto, ['spaceId'] as const)) {}

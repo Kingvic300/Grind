@@ -52,6 +52,18 @@ function toInput(f: FormState): HackathonInput {
   };
 }
 
+/**
+ * Only the fields this person changed. In a shared list someone else may have saved other
+ * fields since the drawer opened, and sending everything would overwrite their work.
+ */
+function changedFields(before: HackathonInput, after: HackathonInput): HackathonInput {
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(after) as (keyof HackathonInput)[]) {
+    if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) out[key] = after[key];
+  }
+  return out as HackathonInput;
+}
+
 export function HackathonDrawer({ hackathon, onClose }: { hackathon: Hackathon | null; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [form, setForm] = useState(() => toForm(hackathon));
@@ -81,7 +93,9 @@ export function HackathonDrawer({ hackathon, onClose }: { hackathon: Hackathon |
       setError('Enter the prize amount as a number, without symbols.');
       return;
     }
-    save.mutate({ id: hackathon?.id, input: toInput(form) }, { onSuccess: onClose, onError: (e) => setError(e.message) });
+    const input = hackathon ? changedFields(toInput(toForm(hackathon)), toInput(form)) : toInput(form);
+    if (hackathon && !Object.keys(input).length) return onClose();
+    save.mutate({ id: hackathon?.id, input }, { onSuccess: onClose, onError: (e) => setError(e.message) });
   };
 
   const destroy = () => {
@@ -230,6 +244,12 @@ export function HackathonDrawer({ hackathon, onClose }: { hackathon: Hackathon |
         </div>
 
         <footer className="drawer-foot">
+          {hackathon?.spaceId && (
+            <p className="drawer-byline">
+              Added by {hackathon.user.name}
+              {hackathon.updatedBy && hackathon.updatedAt !== hackathon.createdAt ? `, last edited by ${hackathon.updatedBy.name}` : ''}
+            </p>
+          )}
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="drawer-actions">
             {hackathon &&

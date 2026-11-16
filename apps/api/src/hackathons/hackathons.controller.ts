@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard, UserId } from '../auth/auth.guard';
 import { CreateHackathonDto, UpdateHackathonDto } from './hackathon.dto';
 import { HackathonsService } from './hackathons.service';
@@ -8,9 +8,10 @@ import { HackathonsService } from './hackathons.service';
 export class HackathonsController {
   constructor(private readonly hackathons: HackathonsService) {}
 
+  /** ?space=<id> lists a shared list. Without it, the user's private list. */
   @Get()
-  list(@UserId() userId: string) {
-    return this.hackathons.list(userId);
+  list(@UserId() userId: string, @Query('space') spaceId?: string) {
+    return this.hackathons.list(userId, spaceId || null);
   }
 
   @Post()

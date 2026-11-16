@@ -30,3 +30,7 @@ export const IconChevronLeft = () => <Icon><path d="M15 6l-6 6 6 6" /></Icon>;
 export const IconChevronRight = () => <Icon><path d="M9 6l6 6-6 6" /></Icon>;
 export const IconCheck = () => <Icon size={16}><path d="M5 12.5l4.5 4.5L19 7.5" /></Icon>;
 export const IconTrophy = () => <Icon size={15}><path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20h7" /></Icon>;
+export const IconUsers = () => <Icon><circle cx="9" cy="8" r="3.2" /><path d="M3.5 19a5.5 5.5 0 0 1 11 0M15.5 5.2a3.2 3.2 0 0 1 0 5.6M17.5 14a5.5 5.5 0 0 1 3 5" /></Icon>;
+export const IconLock = () => <Icon size={15}><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></Icon>;
+export const IconLink = () => <Icon size={16}><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></Icon>;
+export const IconCompass = () => <Icon><circle cx="12" cy="12" r="8.5" /><path d="M15.5 8.5l-2 5-5 2 2-5z" /></Icon>;
