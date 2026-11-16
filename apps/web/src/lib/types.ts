@@ -130,7 +130,7 @@ export type Comment = { id: string; body: string; createdAt: string; author: Pro
 
 export type ActivityKind =
   | 'added' | 'moved' | 'edited' | 'deleted' | 'assigned'
-  | 'task_added' | 'task_done' | 'commented' | 'joined' | 'left' | 'renamed';
+  | 'task_added' | 'task_done' | 'commented' | 'joined' | 'left' | 'renamed' | 'imported';
 
 export type Activity = {
   id: string;

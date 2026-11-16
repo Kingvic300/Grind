@@ -26,6 +26,7 @@ function describe(a: Activity, name: (fallback: string | null) => ReactNode): Re
     case 'joined': return <>joined the team</>;
     case 'left': return a.detail ? <>removed <b>{a.detail}</b> from the team</> : <>left the team</>;
     case 'renamed': return <>renamed the team to <b>{a.detail}</b></>;
+    case 'imported': return <>imported <b>{a.detail === '1' ? '1 hackathon' : `${a.detail} hackathons`}</b> from a spreadsheet</>;
     default: return null;
   }
 }

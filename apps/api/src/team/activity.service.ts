@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 export type ActivityKind =
   | 'added' | 'moved' | 'edited' | 'deleted' | 'assigned'
-  | 'task_added' | 'task_done' | 'commented' | 'joined' | 'left' | 'renamed';
+  | 'task_added' | 'task_done' | 'commented' | 'joined' | 'left' | 'renamed' | 'imported';
 
 /** Repeated edits by one person to one hackathon inside this window become one entry. */
 const MERGE_MS = 10 * 60_000;

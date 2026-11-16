@@ -1,5 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { EventsService } from '../events/events.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SpacesService } from '../spaces/spaces.service';
@@ -8,6 +10,11 @@ import { CollabService } from '../team/collab.service';
 import { CreateHackathonDto, UpdateHackathonDto } from './hackathon.dto';
 
 const DATE_FIELDS = ['startDate', 'endDate', 'registrationDeadline', 'submissionDeadline'] as const;
+
+/** Names match when they differ only in case and spacing. */
+const nameKey = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase();
+
+export type ImportSkip = { index: number; name: string | null; reason: string };
 
 const STATUS_LABEL: Record<string, string> = {
   INTERESTED: 'Interested', REGISTERED: 'Registered', BUILDING: 'Building', SUBMITTED: 'Submitted', DONE: 'Done',
@@ -84,6 +91,54 @@ export class HackathonsService {
     await this.activity.log(spaceId, userId, 'added', created);
     await this.announce(userId, spaceId);
     return toPublic(created);
+  }
+
+  /**
+   * Adds many hackathons at once. Each row is validated on its own: bad rows and names already
+   * in the list are reported back by their index in `rows`, and the rest are added.
+   */
+  async importMany(userId: string, spaceId: string | null, rows: Record<string, unknown>[]) {
+    if (spaceId) await this.spaces.requireMember(userId, spaceId);
+    const where = this.scope(userId, spaceId);
+    const existing = await this.prisma.hackathon.findMany({ where, select: { name: true } });
+    const taken = new Set(existing.map((h) => nameKey(h.name)));
+    const last = await this.prisma.hackathon.aggregate({ where, _max: { position: true } });
+    let position = last._max.position ?? 0;
+
+    const skipped: ImportSkip[] = [];
+    const data: Prisma.HackathonCreateManyInput[] = [];
+    for (const [index, row] of rows.entries()) {
+      const dto = plainToInstance(CreateHackathonDto, { ...row, spaceId: undefined, position: undefined });
+      const errors = await validate(dto, { whitelist: true });
+      const name = typeof dto.name === 'string' ? dto.name.trim() : null;
+      if (errors.length) {
+        const first = errors[0].constraints ? Object.values(errors[0].constraints)[0] : 'This row is not valid.';
+        skipped.push({ index, name, reason: first });
+        continue;
+      }
+      const key = nameKey(dto.name);
+      if (taken.has(key)) {
+        skipped.push({ index, name, reason: 'Already in this list.' });
+        continue;
+      }
+      const fields = toData(dto);
+      try {
+        this.checkDates(fields);
+      } catch (error) {
+        skipped.push({ index, name, reason: (error as Error).message });
+        continue;
+      }
+      taken.add(key);
+      position += 1;
+      data.push({ ...(fields as Prisma.HackathonUncheckedCreateInput), name: dto.name.trim(), position, userId, spaceId, updatedById: userId });
+    }
+
+    if (data.length) {
+      await this.prisma.hackathon.createMany({ data });
+      await this.activity.log(spaceId, userId, 'imported', null, String(data.length));
+      await this.announce(userId, spaceId);
+    }
+    return { created: data.length, skipped };
   }
 
   async update(userId: string, id: string, dto: UpdateHackathonDto) {

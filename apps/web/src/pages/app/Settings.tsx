@@ -2,6 +2,7 @@ import { type FormEvent, type ReactNode, useMemo, useRef, useState } from 'react
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Avatar } from '../../components/Avatar';
 import { IconCheck, IconLink } from '../../components/Icons';
+import { ImportButton } from '../../components/ImportDialog';
 import { Bone, Spinner } from '../../components/Loading';
 import { Faces } from '../../components/SpaceSwitcher';
 import { API_URL } from '../../lib/api';
@@ -603,6 +604,12 @@ function DataTab({ me }: { me: User }) {
 
   return (
     <>
+      <Section title="Import" sub="Bring hackathons in from an Excel or CSV file, into your private list or a team. Names already in the list are skipped.">
+        <div className="set-actions">
+          <ImportButton label="Import from a spreadsheet" />
+        </div>
+      </Section>
+
       <Section title="Export" sub="Everything you track, from your private list and every team you are in.">
         <div className="set-actions">
           <button type="button" className="btn btn-outline" disabled={ex.busy} onClick={exportCsv}>{ex.spin('csv')}Download hackathons (CSV)</button>

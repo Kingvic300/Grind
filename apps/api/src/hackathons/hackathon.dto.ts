@@ -2,11 +2,13 @@ import { OmitType, PartialType } from '@nestjs/mapped-types';
 import { Format, Status } from '@prisma/client';
 import {
   ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
+  IsObject,
   IsNumber,
   IsOptional,
   IsString,
@@ -101,4 +103,16 @@ export class UpdateHackathonDto extends PartialType(OmitType(CreateHackathonDto,
   @ArrayMaxSize(50)
   @IsString({ each: true })
   assigneeIds?: string[];
+}
+
+/** Rows parsed from a spreadsheet. The service validates each row on its own, so one bad row does not block the rest. */
+export class ImportHackathonsDto {
+  @IsOptional() @IsString() @MaxLength(40)
+  spaceId?: string | null;
+
+  @IsArray()
+  @ArrayMinSize(1, { message: 'The file has no rows to import.' })
+  @ArrayMaxSize(200, { message: 'Send at most 200 rows at a time.' })
+  @IsObject({ each: true })
+  rows: Record<string, unknown>[];
 }

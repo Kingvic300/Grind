@@ -84,9 +84,67 @@ export function useCalendarFeed() {
 /** Hackathons in the list the app is showing. */
 export function useHackathons() {
   const { spaceId } = useSpaceId();
+  return useHackathonsIn(spaceId);
+}
+
+/** Hackathons in one list: the private list (null) or a team. */
+export function useHackathonsIn(spaceId: string | null) {
   return useQuery({
     queryKey: hackathonsKey(spaceId),
     queryFn: () => api<Hackathon[]>(spaceId ? `/hackathons?space=${encodeURIComponent(spaceId)}` : '/hackathons'),
+  });
+}
+
+export type ImportResult = { created: number; skipped: { index: number; name: string | null; reason: string }[] };
+
+// The API reads JSON bodies up to 100 KB, so long notes need smaller batches.
+const IMPORT_BATCH_ROWS = 200;
+const IMPORT_BATCH_BYTES = 80_000;
+
+function batches(rows: HackathonInput[]) {
+  const out: HackathonInput[][] = [];
+  let current: HackathonInput[] = [];
+  let bytes = 0;
+  for (const row of rows) {
+    const size = new TextEncoder().encode(JSON.stringify(row)).length;
+    if (current.length && (current.length >= IMPORT_BATCH_ROWS || bytes + size > IMPORT_BATCH_BYTES)) {
+      out.push(current);
+      current = [];
+      bytes = 0;
+    }
+    current.push(row);
+    bytes += size;
+  }
+  if (current.length) out.push(current);
+  return out;
+}
+
+/** Adds rows from a spreadsheet. Skipped rows come back with their index in `rows`. */
+export function useImportHackathons() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ spaceId, rows }: { spaceId: string | null; rows: HackathonInput[] }): Promise<ImportResult> => {
+      const result: ImportResult = { created: 0, skipped: [] };
+      let offset = 0;
+      for (const batch of batches(rows)) {
+        try {
+          const res = await api<ImportResult>('/hackathons/import', { method: 'POST', body: { spaceId, rows: batch } });
+          result.created += res.created;
+          result.skipped.push(...res.skipped.map((s) => ({ ...s, index: s.index + offset })));
+        } catch (error) {
+          if (!result.created) throw error;
+          const added = result.created === 1 ? '1 hackathon was' : `${result.created} hackathons were`;
+          throw new ApiError(`${(error as Error).message} ${added} added before this happened.`, (error as ApiError).status ?? 0);
+        }
+        offset += batch.length;
+      }
+      return result;
+    },
+    onSettled: (_data, _error, { spaceId }) => {
+      void client.invalidateQueries({ queryKey: hackathonsKey(spaceId) });
+      void client.invalidateQueries({ queryKey: SPACES });
+      void client.invalidateQueries({ queryKey: ['stats'] });
+    },
   });
 }
 

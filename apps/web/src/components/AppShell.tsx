@@ -157,7 +157,7 @@ export function PageHead({ title, sub, children }: { title: React.ReactNode; sub
   );
 }
 
-export function EmptyState({ onAdd }: { onAdd: () => void }) {
+export function EmptyState({ onAdd, children }: { onAdd: () => void; children?: React.ReactNode }) {
   return (
     <div className="empty">
       <div className="empty-prompt" aria-hidden="true">
@@ -165,9 +165,12 @@ export function EmptyState({ onAdd }: { onAdd: () => void }) {
       </div>
       <h2>No hackathons yet</h2>
       <p>Add the first one you have your eye on. A name is enough to start.</p>
-      <button type="button" className="btn btn-accent" onClick={onAdd}>
-        <IconPlus /> Add hackathon
-      </button>
+      <div className="empty-actions">
+        <button type="button" className="btn btn-accent" onClick={onAdd}>
+          <IconPlus /> Add hackathon
+        </button>
+        {children}
+      </div>
     </div>
   );
 }

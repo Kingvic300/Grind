@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { EmptyState, PageHead, useShell } from '../../components/AppShell';
 import { Countdown, MineToggle, OpenSite, StatusPill } from '../../components/Bits';
 import { IconSearch, IconTrophy } from '../../components/Icons';
+import { ImportButton } from '../../components/ImportDialog';
 import { ListSkeleton } from '../../components/Loading';
 import { Faces } from '../../components/TeamWork';
 import { useHackathons, useMe } from '../../lib/hooks';
@@ -51,9 +52,12 @@ export function ListPage() {
     <>
       <PageHead title="Hackathons" sub={spaceId ? 'Everything your team is tracking, in one list.' : 'Everything you are tracking, in one list.'}>
         {spaceId && <MineToggle mine={mine} onChange={setMine} count={assignedToMe.length} />}
+        {all.length > 0 && <ImportButton />}
       </PageHead>
       {!all.length ? (
-        <EmptyState onAdd={() => openEditor()} />
+        <EmptyState onAdd={() => openEditor()}>
+          <ImportButton label="Import from Excel" />
+        </EmptyState>
       ) : (
         <>
           <div className="toolbar">

@@ -40,3 +40,5 @@ export const IconTasks = () => <Icon size={15}><path d="M9 6h11M9 12h11M9 18h11M
 export const IconComment = () => <Icon size={15}><path d="M5 5h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H10l-4 3v-3H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" /></Icon>;
 export const IconTrash = () => <Icon size={15}><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" /></Icon>;
 export const IconExternal = () => <Icon size={14}><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" /></Icon>;
+export const IconUpload = () => <Icon><path d="M12 15V4M7 9l5-5 5 5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" /></Icon>;
+export const IconSheet = () => <Icon size={28}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M8.5 12h7M8.5 16h7M12 12v7" /></Icon>;

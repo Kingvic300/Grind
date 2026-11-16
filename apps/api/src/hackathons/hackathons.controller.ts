@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard, UserId } from '../auth/auth.guard';
-import { CreateHackathonDto, UpdateHackathonDto } from './hackathon.dto';
+import { CreateHackathonDto, ImportHackathonsDto, UpdateHackathonDto } from './hackathon.dto';
 import { HackathonsService } from './hackathons.service';
 
 @UseGuards(AuthGuard)
@@ -17,6 +17,12 @@ export class HackathonsController {
   @Post()
   create(@UserId() userId: string, @Body() dto: CreateHackathonDto) {
     return this.hackathons.create(userId, dto);
+  }
+
+  /** Bulk add from a spreadsheet. Skips rows whose name is already in the list. */
+  @Post('import')
+  importMany(@UserId() userId: string, @Body() dto: ImportHackathonsDto) {
+    return this.hackathons.importMany(userId, dto.spaceId || null, dto.rows);
   }
 
   @Patch(':id')
