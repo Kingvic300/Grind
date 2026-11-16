@@ -5,8 +5,9 @@ import { EventsService } from '../events/events.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActivityService } from '../team/activity.service';
 
-/** 128 random bits. Anyone with the code can join, so it must not be guessable. */
-const newInviteCode = () => randomBytes(16).toString('base64url');
+/** 128 random bits. Anyone with the code can join, so it must not be guessable.
+ *  Hex only: base64url '_' and '-' get eaten by chat apps (WhatsApp/Slack italics), breaking pasted links. */
+const newInviteCode = () => randomBytes(16).toString('hex');
 
 /** What members of a shared list see about each other. */
 const MEMBER_FIELDS = {
