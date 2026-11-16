@@ -77,7 +77,11 @@ async function describe(h: RawListing): Promise<string> {
     // Devpost refuses page requests from bots, so its listings are tagged from name and themes.
     case 'devpost':
       return '';
+    // These link to an event page with a usable meta description.
     case 'mlh':
+    case 'hackclub':
+    case 'ethglobal':
+    case 'superteam':
       return plain(metaDescription(await pageText(h.url)));
     default:
       return '';
@@ -113,6 +117,6 @@ export async function enrich(raw: RawListing[], known: Map<string, string>): Pro
     const { categories, stack } = classify(haystack);
     const short = text.length > DESCRIPTION_CHARS ? `${text.slice(0, DESCRIPTION_CHARS).replace(/\s+\S*$/, '')}…` : text;
     const format = formatFromText([h.name, ...h.tags, text.slice(0, CLASSIFY_CHARS)].join(' . '), h.format);
-    return { ...rest, format, description: clean(short), categories, stack };
+    return { ...rest, kind: h.kind ?? 'hackathon', format, description: clean(short), categories, stack };
   });
 }

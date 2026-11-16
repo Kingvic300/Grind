@@ -67,12 +67,21 @@ export class DiscoverService implements OnApplicationBootstrap {
       raw.push(...live);
     });
 
+    // Directories overlap (Hack Club and MLH both list some events), so keep the first copy of each link.
+    const seenLinks = new Set<string>();
+    const unique = raw.filter((h) => {
+      const link = h.url.toLowerCase().replace(/^https?:\/\/(www\.)?/, '').replace(/\/+$/, '');
+      if (seenLinks.has(link)) return false;
+      seenLinks.add(link);
+      return true;
+    });
+
     // Forget descriptions of events that dropped off, so the map does not grow forever.
-    const ids = new Set(raw.map((h) => h.id));
+    const ids = new Set(unique.map((h) => h.id));
     for (const id of this.descriptions.keys()) if (!ids.has(id)) this.descriptions.delete(id);
 
     const started = Date.now();
-    const hackathons = await enrich(raw, this.descriptions);
+    const hackathons = await enrich(unique, this.descriptions);
     this.logger.log(`Discover refreshed: ${hackathons.length} hackathons in ${Date.now() - started} ms`);
 
     const far = '9999-12-31';

@@ -123,7 +123,7 @@ export function useDeleteHackathon() {
   });
 }
 
-/** Open and upcoming hackathons from Devpost, DoraHacks, Devfolio and MLH. */
+/** Open and upcoming hackathons from public sites, plus Superteam Earn bounties. */
 export function useDiscover() {
   return useQuery({ queryKey: ['discover'], queryFn: () => api<DiscoverResult>('/discover'), staleTime: 10 * 60_000 });
 }

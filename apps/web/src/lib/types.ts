@@ -142,13 +142,20 @@ export type Activity = {
   actor: Profile | null;
 };
 
-export const SOURCES = ['devpost', 'dorahacks', 'devfolio', 'mlh'] as const;
+export const SOURCES = ['devpost', 'dorahacks', 'devfolio', 'mlh', 'superteam', 'ethglobal', 'taikai', 'unstop', 'hackerearth', 'hackclub'] as const;
+
+export const SOURCE_LABEL: Record<Source, string> = {
+  devpost: 'Devpost', dorahacks: 'DoraHacks', devfolio: 'Devfolio', mlh: 'MLH', superteam: 'Superteam Earn',
+  ethglobal: 'ETHGlobal', taikai: 'Taikai', unstop: 'Unstop', hackerearth: 'HackerEarth', hackclub: 'Hack Club',
+};
 export type Source = (typeof SOURCES)[number];
 
 /** A hackathon found on a public site, not yet in any Grind list. */
 export type Listing = {
   id: string;
   source: Source;
+  /** A bounty is a paid task with a deadline, not an event. Only Superteam Earn has them. */
+  kind: 'hackathon' | 'bounty';
   name: string;
   organizer: string | null;
   url: string;

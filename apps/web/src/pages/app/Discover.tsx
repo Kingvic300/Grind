@@ -11,6 +11,7 @@ import {
   FORMATS,
   FORMAT_LABEL,
   SOURCES,
+  SOURCE_LABEL,
   hasInterests,
   matchesInterests,
   type Category,
@@ -20,13 +21,14 @@ import {
   type Source,
 } from '../../lib/types';
 
-const SOURCE_LABEL: Record<Source, string> = { devpost: 'Devpost', dorahacks: 'DoraHacks', devfolio: 'Devfolio', mlh: 'MLH' };
 const TOPICS = (Object.keys(CATEGORY_LABEL) as Category[]).filter((c) => c !== 'web3');
 const STACK_PREVIEW = 14;
 
 type Kind = 'all' | 'web3' | 'web2';
+type Show = 'all' | 'hackathon' | 'bounty';
 type Sort = 'closing' | 'starting' | 'name';
 type Window = 'any' | '3' | '7' | '30' | '90';
+type Skip = 'show' | 'kind' | 'topics' | 'stacks' | 'sources' | 'format';
 
 const DAY = 24 * 60 * 60 * 1000;
 const WINDOWS: { value: Window; label: string }[] = [
@@ -79,7 +81,7 @@ function toInput(h: Listing): HackathonInput {
     submissionDeadline: h.submissionDeadline,
     status: 'INTERESTED',
     techStack: h.stack.slice(0, 30),
-    notes: [h.prize, `Found on ${SOURCE_LABEL[h.source]}.`].filter(Boolean).join('. '),
+    notes: [h.prize, `Found on ${SOURCE_LABEL[h.source]}${h.kind === 'bounty' ? ' (bounty)' : ''}.`].filter(Boolean).join('. '),
   };
 }
 
@@ -114,6 +116,7 @@ function ListingCard({ h, added, onAdd, busy, now, match }: { h: Listing; added:
         <div className="listing-head">
           <span className="listing-badges">
             <span className={`source source-${h.source}`}>{SOURCE_LABEL[h.source]}</span>
+            {h.kind === 'bounty' && <span className="kind kind-bounty">Bounty</span>}
             <span className={`kind kind-${web3 ? 'web3' : 'web2'}`}>{web3 ? 'Web3' : 'Web2'}</span>
             {match && <span className="kind kind-match">Matches you</span>}
           </span>
@@ -198,6 +201,7 @@ export function DiscoverPage() {
   const now = useNow(60_000);
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState<Kind>('all');
+  const [show, setShow] = useState<Show>('all');
   const [topics, setTopics] = useState<Set<Category>>(new Set());
   const [stacks, setStacks] = useState<Set<string>>(new Set());
   const [sources, setSources] = useState<Set<Source>>(new Set());
@@ -219,10 +223,11 @@ export function DiscoverPage() {
   }, [all]);
 
   // Every filter except the one being counted, so chip counts show what clicking would give.
-  const matches = (h: Listing, skip?: 'kind' | 'topics' | 'stacks' | 'sources' | 'format') => {
+  const matches = (h: Listing, skip?: Skip) => {
     if (showForYou && interests && !matchesInterests(h, interests)) return false;
     const q = search.trim().toLowerCase();
     if (q && ![h.name, h.organizer, h.location, h.description, ...h.tags, ...h.stack].some((v) => v?.toLowerCase().includes(q))) return false;
+    if (skip !== 'show' && show !== 'all' && h.kind !== show) return false;
     if (skip !== 'kind' && kind !== 'all' && h.categories.includes('web3') !== (kind === 'web3')) return false;
     if (skip !== 'topics' && topics.size && ![...topics].some((t) => h.categories.includes(t))) return false;
     if (skip !== 'stacks' && stacks.size && ![...stacks].some((t) => h.stack.includes(t))) return false;
@@ -243,10 +248,11 @@ export function DiscoverPage() {
       return (nextClose(a, now)?.at ?? Infinity) - (nextClose(b, now)?.at ?? Infinity);
     });
 
-  const activeFilters = topics.size + stacks.size + sources.size + (kind !== 'all' ? 1 : 0) + (format !== 'ALL' ? 1 : 0) + (within !== 'any' ? 1 : 0) + (search ? 1 : 0);
+  const activeFilters = topics.size + stacks.size + sources.size + (show !== 'all' ? 1 : 0) + (kind !== 'all' ? 1 : 0) + (format !== 'ALL' ? 1 : 0) + (within !== 'any' ? 1 : 0) + (search ? 1 : 0);
   const clearAll = () => {
     setSearch('');
     setKind('all');
+    setShow('all');
     setTopics(new Set());
     setStacks(new Set());
     setSources(new Set());
@@ -266,11 +272,11 @@ export function DiscoverPage() {
     );
   };
 
-  if (discover.isPending) return <CardsSkeleton label="Collecting hackathons from Devpost, DoraHacks, Devfolio and MLH" />;
+  if (discover.isPending) return <CardsSkeleton label={`Collecting hackathons from ${SOURCES.length} sites`} />;
   if (discover.isError) return <div className="page-error" role="alert">{discover.error.message}</div>;
 
   const failed = discover.data.sources.filter((s) => !s.ok);
-  const count = (pred: (h: Listing) => boolean, skip: 'kind' | 'topics' | 'stacks' | 'sources' | 'format') =>
+  const count = (pred: (h: Listing) => boolean, skip: Skip) =>
     all.filter((h) => matches(h, skip) && pred(h)).length;
   const shownStacks = showAllStack ? stackOptions : stackOptions.slice(0, STACK_PREVIEW);
 
@@ -278,7 +284,7 @@ export function DiscoverPage() {
     <>
       <PageHead
         title="Discover"
-        sub={`Open and upcoming hackathons from ${discover.data.sources.map((s) => s.label).join(', ')}. Adding one puts it in ${listName}.`}
+        sub={`Open and upcoming hackathons from ${discover.data.sources.length} sites, plus Superteam Earn bounties. Adding one puts it in ${listName}.`}
       />
 
       {failed.length > 0 && <p className="form-error" role="status">{failed.map((s) => s.error).join(' ')} The other sources are shown.</p>}
@@ -319,6 +325,20 @@ export function DiscoverPage() {
       </div>
 
       <section className="panel discover-filters" aria-label="Filters">
+        {all.some((h) => h.kind === 'bounty') && (
+          <div className="filter-row">
+            <span className="filter-label">Show</span>
+            <div className="segmented" role="group" aria-label="Hackathons or bounties">
+              {(['all', 'hackathon', 'bounty'] as Show[]).map((v) => (
+                <button type="button" key={v} className={show === v ? 'is-on' : ''} aria-pressed={show === v} onClick={() => setShow(v)}>
+                  {v === 'all' ? 'All' : v === 'hackathon' ? 'Hackathons' : 'Bounties'}{' '}
+                  <b>{count((h) => v === 'all' || h.kind === v, 'show')}</b>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="filter-row">
           <span className="filter-label">Kind</span>
           <div className="segmented" role="group" aria-label="Kind">
@@ -372,7 +392,7 @@ export function DiscoverPage() {
 
         <ChipRow
           label="Site"
-          options={[...SOURCES]}
+          options={SOURCES.filter((src) => all.some((h) => h.source === src))}
           selected={sources}
           onToggle={(s) => setSources((set) => toggle(set, s))}
           render={(s) => SOURCE_LABEL[s]}

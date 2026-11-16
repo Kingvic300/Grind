@@ -46,7 +46,8 @@ export class DigestService {
       take: 500,
     });
     if (!users.length) return;
-    const listings = await this.discover.list().then((r) => r.hackathons).catch(() => [] as Listing[]);
+    // The digest is about events, so Superteam bounties stay out of it.
+    const listings = await this.discover.list().then((r) => r.hackathons.filter((h) => h.kind === 'hackathon')).catch(() => [] as Listing[]);
     for (const user of users) {
       try {
         if (await this.sendTo(user, listings)) {
