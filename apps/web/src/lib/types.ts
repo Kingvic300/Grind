@@ -142,11 +142,12 @@ export type Activity = {
   actor: Profile | null;
 };
 
-export const SOURCES = ['devpost', 'dorahacks', 'devfolio', 'mlh', 'superteam', 'ethglobal', 'taikai', 'unstop', 'hackerearth', 'hackclub'] as const;
+export const SOURCES = ['devpost', 'dorahacks', 'devfolio', 'mlh', 'superteam', 'ethglobal', 'taikai', 'unstop', 'hackerearth', 'hackclub', 'linkedin'] as const;
 
 export const SOURCE_LABEL: Record<Source, string> = {
   devpost: 'Devpost', dorahacks: 'DoraHacks', devfolio: 'Devfolio', mlh: 'MLH', superteam: 'Superteam Earn',
   ethglobal: 'ETHGlobal', taikai: 'Taikai', unstop: 'Unstop', hackerearth: 'HackerEarth', hackclub: 'Hack Club',
+  linkedin: 'LinkedIn',
 };
 export type Source = (typeof SOURCES)[number];
 

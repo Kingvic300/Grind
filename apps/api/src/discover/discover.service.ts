@@ -60,7 +60,7 @@ export class DiscoverService implements OnApplicationBootstrap {
   }
 
   private async load(): Promise<DiscoverResult> {
-    const entries = Object.entries(SOURCES) as [Source, (typeof SOURCES)[Source]][];
+    const entries = (Object.entries(SOURCES) as [Source, (typeof SOURCES)[Source]][]).filter(([, s]) => s.enabled?.() ?? true);
     const settled = await Promise.allSettled(entries.map(([, s]) => s.fetch()));
     const today = new Date().toISOString().slice(0, 10);
     const sources: SourceStatus[] = [];

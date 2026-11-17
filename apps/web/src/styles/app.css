@@ -127,6 +127,7 @@ button.nextup:hover { border-color: rgb(242 84 27 / 0.6); }
 .source-unstop { background: #e8f1ff; color: #1d4ea8; }
 .source-hackerearth { background: #e6f4fb; color: #155e85; }
 .source-hackclub { background: #ffe8ea; color: #b4232f; }
+.source-linkedin { background: #e5f0fa; color: #0a5aa0; }
 .discover-foot { margin-top: 18px; }
 .listing-badges { display: flex; flex-wrap: wrap; gap: 5px; }
 .kind { font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 7px; border-radius: 6px; }

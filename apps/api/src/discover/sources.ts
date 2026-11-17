@@ -6,7 +6,7 @@
 
 export type Source =
   | 'devpost' | 'dorahacks' | 'devfolio' | 'mlh'
-  | 'superteam' | 'ethglobal' | 'taikai' | 'unstop' | 'hackerearth' | 'hackclub';
+  | 'superteam' | 'ethglobal' | 'taikai' | 'unstop' | 'hackerearth' | 'hackclub' | 'linkedin';
 /** A bounty is a paid task with a deadline, not an event. Superteam Earn lists both. */
 export type ListingKind = 'hackathon' | 'bounty';
 export type ListingFormat = 'ONLINE' | 'IN_PERSON' | 'HYBRID';
@@ -45,6 +45,7 @@ export type RawListing = Omit<Listing, 'description' | 'categories' | 'stack' | 
 };
 
 import type { Category } from './classify';
+import { fetchLinkedIn, linkedInEnabled } from './linkedin';
 
 const TIMEOUT_MS = 12_000;
 const HEADERS = {
@@ -737,7 +738,8 @@ export async function fetchHackClub(): Promise<RawListing[]> {
     }));
 }
 
-export const SOURCES: Record<Source, { label: string; fetch: () => Promise<RawListing[]> }> = {
+/** `enabled` is left out for sources that always run. A disabled source is skipped and not reported. */
+export const SOURCES: Record<Source, { label: string; fetch: () => Promise<RawListing[]>; enabled?: () => boolean }> = {
   devpost: { label: 'Devpost', fetch: fetchDevpost },
   dorahacks: { label: 'DoraHacks', fetch: fetchDoraHacks },
   devfolio: { label: 'Devfolio', fetch: fetchDevfolio },
@@ -748,4 +750,6 @@ export const SOURCES: Record<Source, { label: string; fetch: () => Promise<RawLi
   unstop: { label: 'Unstop', fetch: fetchUnstop },
   hackerearth: { label: 'HackerEarth', fetch: fetchHackerEarth },
   hackclub: { label: 'Hack Club', fetch: fetchHackClub },
+  // Arrow functions, because linkedin.ts imports this file and may not have loaded yet here.
+  linkedin: { label: 'LinkedIn', fetch: () => fetchLinkedIn(), enabled: () => linkedInEnabled() },
 };

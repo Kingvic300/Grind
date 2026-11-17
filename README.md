@@ -36,6 +36,7 @@ pnpm dev
 | `MAIL_FROM` | Sender, for example `Grind <you@example.com>`. With Brevo it must be a verified sender. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | SMTP fallback, used when `BREVO_API_KEY` is empty. |
 | `WEB_ORIGIN`, `APP_URL` | Allowed browser origin, and the link placed in emails. |
+| `BRAVE_SEARCH_API_KEY` | Optional. Brave Search API key that lets Discover list LinkedIn hackathon events. Without it the LinkedIn source is off. |
 
 `.env` is ignored by git. Never commit it.
 
