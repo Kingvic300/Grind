@@ -24,6 +24,7 @@ export const IconBoard = () => <Icon><path d="M5 4h4v16H5zM15 4h4v9h-4z" /></Ico
 export const IconCalendar = () => <Icon><path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM4 10h16M8 3v4M16 3v4" /></Icon>;
 export const IconSettings = () => <Icon><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></Icon>;
 export const IconPlus = () => <Icon><path d="M12 5v14M5 12h14" /></Icon>;
+export const IconMenu = () => <Icon><path d="M4 7h16M4 12h16M4 17h16" /></Icon>;
 export const IconClose = () => <Icon><path d="M6 6l12 12M18 6L6 18" /></Icon>;
 export const IconSearch = () => <Icon><circle cx="11" cy="11" r="6" /><path d="M20 20l-4.5-4.5" /></Icon>;
 export const IconChevronLeft = () => <Icon><path d="M15 6l-6 6 6 6" /></Icon>;

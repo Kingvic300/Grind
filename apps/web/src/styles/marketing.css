@@ -7,7 +7,9 @@
 .mkt-links a { padding: 8px 12px; border-radius: 8px; text-decoration: none; font-weight: 500; color: var(--muted); }
 .mkt-links a:hover, .mkt-links a.active { color: var(--ink); }
 .mkt-links a.active { background: rgb(18 20 28 / 0.06); }
-.mkt-nav-actions { display: flex; gap: 8px; margin-left: auto; }
+.mkt-nav-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.mkt-menu-btn { display: none; width: 44px; height: 44px; flex: none; }
+.mkt-menu { display: none; }
 
 /* Hero: left-aligned thesis beside a working board. */
 .hero {
@@ -118,8 +120,8 @@
 .mkt-footer .logo-mark rect:first-child { fill: #fff; }
 .mkt-footer .logo-mark path { stroke: var(--ink); }
 .mkt-footer-brand { display: grid; gap: 10px; max-width: 320px; font-size: 14px; }
-.mkt-footer nav { display: flex; flex-wrap: wrap; gap: 6px 22px; align-content: start; font-size: 14px; }
-.mkt-footer nav a { text-decoration: none; }
+.mkt-footer nav { display: flex; flex-wrap: wrap; gap: 0 22px; align-content: start; font-size: 14px; }
+.mkt-footer nav a { text-decoration: none; padding-block: 6px; }
 .mkt-footer nav a:hover { color: #fff; }
 
 /* Inner page hero */
@@ -182,19 +184,38 @@
   .section { padding-block: 64px; }
   .section-flush { padding-top: 8px; }
   .feature-rows { gap: 64px; }
-  .bento { grid-template-columns: 1fr; }
+  .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bento-cell, .bento-wide { grid-column: auto; }
+  /* The status flow wraps in a narrow cell, so drop the connectors. */
+  .bento-flow .pill + .pill { margin-left: 0; }
+  .bento-flow .pill + .pill::before { display: none; }
   .auth { grid-template-columns: 1fr; }
   .auth-side { display: none; }
 }
 @media (max-width: 680px) {
   .mkt-wrap { padding-inline: 16px; }
   .mkt-nav-inner { gap: 12px; height: 60px; }
-  .mkt-links { display: none; }
-  .mkt-nav-actions .btn-quiet { padding-inline: 10px; }
+  .mkt-links, .mkt-nav-actions .mkt-login { display: none; }
+  .mkt-nav-actions { gap: 4px; }
+  .mkt-menu-btn { display: grid; margin-right: -8px; }
+  .mkt-menu { display: grid; padding: 4px 16px 12px; border-top: 1px solid var(--line); }
+  .mkt-menu a { padding: 13px 0; font-size: 17px; font-weight: 600; text-decoration: none; color: var(--ink); border-bottom: 1px solid var(--line); }
+  .mkt-menu a:last-child { border-bottom: 0; }
+  .mkt-menu a.active { color: var(--accent-ink); }
+  .hero-actions .btn { flex: 1 1 auto; }
+  .bento { grid-template-columns: minmax(0, 1fr); }
+  .bento-cell { padding: 18px; }
+  .bento-cell > .mini { padding: 12px; }
+  .demo-columns { scroll-snap-type: x mandatory; scroll-padding-inline: 16px; }
+  .demo-column { scroll-snap-align: start; }
   .page-hero { padding-block: 48px 32px; }
   .cta-band-inner { padding-block: 56px; }
   .plan { padding: 24px; }
-  .bento-flow .pill + .pill { margin-left: 0; }
-  .bento-flow .pill + .pill::before { display: none; }
+}
+
+/* Small phones: the list preview puts the name on its own line. */
+@media (max-width: 420px) {
+  .mini-row { flex-wrap: wrap; row-gap: 6px; }
+  .mini-name { flex-basis: 100%; }
+  .mini-left { margin-left: auto; }
 }
