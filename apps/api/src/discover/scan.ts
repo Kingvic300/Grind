@@ -9,8 +9,8 @@ import { classify, formatFromText, formatInText } from './classify';
 import { decodeEntities, plain } from './enrich';
 import { fetchPage, publicUrl, ScanError } from './page-fetch';
 import {
-  clean, dayIn, devfolioListing, devpostListing, doraListing, get, https, iso, nextData, prizeText, SOURCES,
-  type DevfolioItem, type DevpostItem, type DoraItem, type Listing, type ListingFormat, type RawListing,
+  clean, dayIn, devfolioListing, devpostListing, doraListing, fetchHackerEarth, get, https, iso, nextData, prizeText, SOURCES, unstopListing,
+  type DevfolioItem, type DevpostItem, type DoraItem, type Listing, type ListingFormat, type RawListing, type Source, type UnstopItem,
 } from './sources';
 
 export type ScanResult = {
@@ -160,6 +160,29 @@ async function taikai(url: URL): Promise<ScanResult | null> {
   );
 }
 
+/** Unstop pages are an empty app shell, but the number at the end of the link opens its competition API. */
+async function unstop(url: URL): Promise<ScanResult | null> {
+  if (url.hostname !== 'unstop.com') return null;
+  const id = url.pathname.match(/-(\d{5,})\/?$/)?.[1];
+  if (!id) return null;
+  const res = await get(`https://unstop.com/api/public/competition/${id}`);
+  const c = ((await res.json()) as { data?: { competition?: UnstopItem } }).data?.competition;
+  if (!c?.title) return null;
+  const raw = unstopListing(c);
+  return fromListing(raw, 'Unstop', plain(raw.inlineDescription));
+}
+
+/**
+ * HackerEarth hackathon links redirect to the organiser's own site, often with no dates on it.
+ * HackerEarth's event feed has the dates for open and upcoming ones, so look the link up there.
+ */
+async function hackerearth(url: URL): Promise<ScanResult | null> {
+  if (!/(^|\.)hackerearth\.com$/.test(url.hostname) || !url.pathname.includes('/hackathon/')) return null;
+  const key = linkKey(url.toString());
+  const hit = (await fetchHackerEarth()).find((h) => linkKey(h.url) === key);
+  return hit ? fromListing(hit, 'HackerEarth', plain(hit.inlineDescription)) : null;
+}
+
 // ---------- Any page ----------
 
 type Json = Record<string, unknown>;
@@ -228,6 +251,7 @@ const PLATFORMS: [RegExp, string][] = [
   [/(^|\.)eventbrite\.[a-z.]+$/, 'Eventbrite'],
   [/(^|\.)meetup\.com$/, 'Meetup'],
   [/(^|\.)taikai\.network$/, 'Taikai'],
+  [/(^|\.)unstop\.com$/, 'Unstop'],
 ];
 const platformOf = (host: string) => PLATFORMS.find(([re]) => re.test(host))?.[1] ?? null;
 
@@ -371,13 +395,15 @@ export function parsePage(html: string, url: URL): ScanResult | null {
  * Reads the hackathon behind a link. `cached` looks the link up in Discover's last result,
  * which already holds clean details for every listed event.
  */
+const READ_FRESH = new Set<Source>(['taikai', 'unstop']);
+
 export async function scanLink(input: string, cached: (key: string) => Listing | null): Promise<ScanResult> {
   const url = publicUrl(input);
   const listed = cached(linkKey(url.toString()));
-  // Taikai's own page has the deadlines its listing lacks, so it is always read fresh.
-  if (listed && listed.source !== 'taikai') return fromListing(listed, SOURCES[listed.source].label);
+  // Taikai and Unstop pages have dates their listings lack, so they are always read fresh.
+  if (listed && !READ_FRESH.has(listed.source)) return fromListing(listed, SOURCES[listed.source].label);
 
-  for (const site of [devpost, dorahacks, devfolio, taikai]) {
+  for (const site of [devpost, dorahacks, devfolio, taikai, unstop, hackerearth]) {
     try {
       const found = await site(url);
       if (found) return found;

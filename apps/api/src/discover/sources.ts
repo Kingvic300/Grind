@@ -602,10 +602,12 @@ export async function fetchTaikai(): Promise<RawListing[]> {
 
 // ---------- Unstop ----------
 
-type UnstopItem = {
+export type UnstopItem = {
   id: number;
   title: string;
   seo_url?: string | null;
+  /** Only the single-competition endpoint gives a start. */
+  start_date?: string | null;
   end_date?: string | null;
   region?: string | null;
   details?: string | null;
@@ -617,32 +619,35 @@ type UnstopItem = {
   workfunction?: { name?: string }[] | null;
 };
 
+export function unstopListing(h: UnstopItem): RawListing {
+  const place = h.address_with_country_logo;
+  return {
+    id: `unstop:${h.id}`,
+    source: 'unstop',
+    name: h.title.trim(),
+    organizer: clean(h.organisation?.name),
+    url: h.seo_url ?? `https://unstop.com/o/${h.id}`,
+    format: h.region === 'online' ? 'ONLINE' : h.region === 'hybrid' ? 'HYBRID' : 'IN_PERSON',
+    location: h.region === 'online' ? null : clean([place?.city, place?.state, place?.country?.name].filter(Boolean).join(', ')),
+    // Unstop gives times in India time.
+    startDate: dateOnly(h.start_date, 'Asia/Kolkata'),
+    endDate: dateOnly(h.end_date, 'Asia/Kolkata'),
+    registrationDeadline: iso(h.regnRequirements?.end_regn_dt),
+    submissionDeadline: null,
+    prize: prizeText((h.prizes ?? []).map((p) => ({ amount: p.cash, currency: p.currencyCode }))),
+    tags: (h.workfunction ?? []).map((w) => w.name).filter((t): t is string => Boolean(t)).slice(0, 8),
+    imageUrl: https(h.logoUrl2),
+    inlineDescription: h.details ?? null,
+  };
+}
+
 export async function fetchUnstop(): Promise<RawListing[]> {
   const out: RawListing[] = [];
   for (let page = 1; page <= 3; page++) {
     const res = await get(`https://unstop.com/api/public/opportunity/search-result?opportunity=hackathons&oppstatus=open&per_page=100&page=${page}`);
     const data = ((await res.json()) as { data?: { data?: UnstopItem[]; last_page?: number } }).data;
     for (const h of data?.data ?? []) {
-      if (!h.title || !h.seo_url) continue;
-      const place = h.address_with_country_logo;
-      out.push({
-        id: `unstop:${h.id}`,
-        source: 'unstop',
-        name: h.title.trim(),
-        organizer: clean(h.organisation?.name),
-        url: h.seo_url,
-        format: h.region === 'online' ? 'ONLINE' : h.region === 'hybrid' ? 'HYBRID' : 'IN_PERSON',
-        location: h.region === 'online' ? null : clean([place?.city, place?.state, place?.country?.name].filter(Boolean).join(', ')),
-        startDate: null,
-        // Unstop gives times in India time.
-        endDate: dateOnly(h.end_date, 'Asia/Kolkata'),
-        registrationDeadline: iso(h.regnRequirements?.end_regn_dt),
-        submissionDeadline: null,
-        prize: prizeText((h.prizes ?? []).map((p) => ({ amount: p.cash, currency: p.currencyCode }))),
-        tags: (h.workfunction ?? []).map((w) => w.name).filter((t): t is string => Boolean(t)).slice(0, 8),
-        imageUrl: https(h.logoUrl2),
-        inlineDescription: h.details ?? null,
-      });
+      if (h.title && h.seo_url) out.push(unstopListing(h));
     }
     if (!data?.last_page || page >= data.last_page) break;
   }
