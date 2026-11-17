@@ -401,6 +401,14 @@ button.nextup:hover { border-color: rgb(242 84 27 / 0.6); }
   .page-head h1 { font-size: 28px; }
   .col-dates, .col-project { display: none; }
   .table th, .table td { padding: 12px; }
+  /* Phones: each row becomes a card, so nothing hides off the right edge. */
+  .table thead { display: none; }
+  .table tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 6px 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .table tbody tr:last-child { border-bottom: 0; }
+  .table tbody td { padding: 0; border: 0; min-width: 0; }
+  .table tbody td:first-child { grid-column: 1; }
+  .table tbody td:nth-child(n + 4) { grid-column: 1 / -1; font-size: 14px; }
+  .row-head { flex-wrap: wrap; gap: 6px 10px; }
   .cal-week { min-height: 72px; }
   .cal-weekdays span { padding: 8px 0; text-align: center; font-size: 10.5px; }
   .cal-date { justify-self: center; margin: 0 0 2px; min-width: 24px; height: 24px; padding: 0 4px; font-size: 12px; }
@@ -417,13 +425,16 @@ button.nextup:hover { border-color: rgb(242 84 27 / 0.6); }
   .cal-deadline b, .cal-deadline span, .cal-more { display: none; }
   .agenda-day { grid-template-columns: 48px minmax(0, 1fr); gap: 8px; }
   .agenda-day .tag { display: none; }
-  .filter-row { grid-template-columns: 1fr; gap: 6px; }
+  .filter-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .filter-row .segmented { max-width: calc(100% + 36px); overflow-x: auto; scrollbar-width: none; margin-inline: -18px; padding-inline: 18px; }
   .filter-label { padding-top: 0; }
   .filter-chips { flex-wrap: nowrap; overflow-x: auto; margin-inline: -18px; padding-inline: 18px; scrollbar-width: none; }
   .filter-row-selects .spacer { display: none; }
 }
 @media (max-width: 520px) {
   .tile strong { font-size: 32px; }
+  .page-head-actions { width: 100%; }
+  .page-head-actions > .btn { flex: 1 1 auto; justify-content: center; }
   .drawer-head, .drawer-body, .drawer-foot { padding-inline: 16px; }
 }
 
@@ -664,3 +675,8 @@ button.nextup:hover { border-color: rgb(242 84 27 / 0.6); }
   .import-actions .btn { flex: 1; }
 }
 .empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+
+/* Seven tabs share the bar, so the smallest phones get tighter labels. */
+@media (max-width: 360px) {
+  .shell-nav a { font-size: 9.5px; letter-spacing: -0.01em; }
+}
