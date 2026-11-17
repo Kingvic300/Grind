@@ -1,7 +1,8 @@
 /**
  * Reads one hackathon from a link someone pasted, to fill the Add hackathon form.
  * Known sites are read through the same endpoints Discover uses. Any other page is read
- * from its schema.org Event data, its meta tags, and finally the page text.
+ * from its schema.org Event data, its meta tags, and finally the page text. Luma and
+ * Eventbrite pages carry full Event data, so they need no site-specific code.
  * Rules only, no AI: what is found is a draft the person checks before saving.
  */
 import { classify, formatFromText, formatInText } from './classify';
@@ -152,6 +153,25 @@ function placeOf(v: unknown): string | null {
 /** "2026-11-20T09:00:00-05:00" to the event's own calendar day. */
 const dayOf = (v: unknown): string | null => (typeof v === 'string' ? (v.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? null) : null);
 
+/**
+ * When ticket sales close, from schema.org offers. Eventbrite stops sign-ups then, so it is
+ * the registration deadline. The latest close wins when there are several ticket types.
+ */
+function salesEnd(offers: unknown): string | null {
+  const ends = ([] as unknown[]).concat(offers ?? [])
+    .map((o) => (isObject(o) && typeof o.availabilityEnds === 'string' ? Date.parse(o.availabilityEnds) : NaN))
+    .filter((t) => !Number.isNaN(t));
+  return ends.length ? new Date(Math.max(...ends)).toISOString() : null;
+}
+
+/** Event platforms whose pages do not name themselves in og:site_name. */
+const PLATFORMS: [RegExp, string][] = [
+  [/(^|\.)(lu\.ma|luma\.com)$/, 'Luma'],
+  [/(^|\.)eventbrite\.[a-z.]+$/, 'Eventbrite'],
+  [/(^|\.)meetup\.com$/, 'Meetup'],
+];
+const platformOf = (host: string) => PLATFORMS.find(([re]) => re.test(host))?.[1] ?? null;
+
 function meta(html: string, key: string): string | null {
   const k = key.replace(/[.:]/g, '\\$&');
   const value =
@@ -280,11 +300,11 @@ export function parsePage(html: string, url: URL): ScanResult | null {
     location: format === 'ONLINE' ? null : placeOf(event?.location),
     startDate,
     endDate: endDate && startDate && endDate < startDate ? null : endDate,
-    registrationDeadline: findDeadline(text, REGISTRATION_KEY),
+    registrationDeadline: findDeadline(text, REGISTRATION_KEY) ?? salesEnd(event?.offers),
     submissionDeadline: findDeadline(text, SUBMISSION_KEY),
     prize: findPrize(`${description} . ${text}`),
     stack: classify(`${title} . ${description} . ${text.slice(0, CLASSIFY_CHARS)}`).stack,
-    site: siteName && siteName.length <= 40 ? siteName : url.hostname.replace(/^www\./, ''),
+    site: platformOf(url.hostname) ?? (siteName && siteName.length <= 40 ? siteName : url.hostname.replace(/^www\./, '')),
   };
 }
 
