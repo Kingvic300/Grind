@@ -354,6 +354,11 @@ button.nextup:hover { border-color: rgb(242 84 27 / 0.6); }
 .drawer-body fieldset:last-child { border-bottom: 0; }
 .drawer-body legend { font-family: var(--font-display); font-weight: 700; font-size: 17px; padding: 0; float: left; width: 100%; }
 .drawer-body .hint { margin-top: -6px; }
+.scan-row { display: flex; gap: 8px; align-items: end; }
+.scan-row .field { flex: 1; }
+.scan-row .btn { height: 42px; flex: none; }
+.scan-notes { margin: -4px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 13.5px; color: var(--muted); }
+.scan-notes li:first-child { color: var(--ink); font-weight: 600; }
 .status-picker { display: flex; flex-wrap: wrap; gap: 6px; }
 .status-option { position: relative; display: inline-flex; align-items: center; height: 34px; padding: 0 13px; border-radius: 999px; font-size: 14px; font-weight: 600; cursor: pointer; border: 2px solid transparent; opacity: 0.6; }
 .status-option.is-on { opacity: 1; border-color: currentColor; }

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { API_URL, ApiError, api } from './api';
 import { useSpaceId } from './space';
-import type { Activity, Comment, DiscoverResult, Hackathon, HackathonInput, InvitePreview, Space, Stats, Task, User, UserUpdate } from './types';
+import type { Activity, Comment, DiscoverResult, Hackathon, HackathonInput, InvitePreview, ScanResult, Space, Stats, Task, User, UserUpdate } from './types';
 
 const ME = ['me'];
 const HACKATHONS = ['hackathons'];
@@ -184,6 +184,11 @@ export function useDeleteHackathon() {
 /** Open and upcoming hackathons from public sites, plus Superteam Earn bounties. */
 export function useDiscover() {
   return useQuery({ queryKey: ['discover'], queryFn: () => api<DiscoverResult>('/discover'), staleTime: 10 * 60_000 });
+}
+
+/** Reads a hackathon's details from a pasted link, to fill the Add hackathon form. */
+export function useScanLink() {
+  return useMutation({ mutationFn: (url: string) => api<ScanResult>('/discover/scan', { method: 'POST', body: { url } }) });
 }
 
 /** Teams the user is in. */

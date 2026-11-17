@@ -6,8 +6,8 @@ const CLASSIFY_CHARS = 6000;
 const CONCURRENCY = 6;
 const MAX_PAGE_BYTES = 3_000_000;
 
-/** Markdown or HTML to one line of plain text. */
-const decodeEntities = (s: string) =>
+/** Turns HTML entities such as "&amp;" and "&#x27;" back into characters. */
+export const decodeEntities = (s: string) =>
   s
     .replace(/&nbsp;/g, ' ')
     .replace(/&quot;/g, '"')

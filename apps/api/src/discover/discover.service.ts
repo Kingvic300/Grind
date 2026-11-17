@@ -1,6 +1,8 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { enrich } from './enrich';
+import { ScanError } from './page-fetch';
+import { linkKey, scanLink, type ScanResult } from './scan';
 import { type Listing, type RawListing, SOURCES, type Source } from './sources';
 
 const CACHE_MS = 30 * 60 * 1000;
@@ -36,6 +38,17 @@ export class DiscoverService implements OnApplicationBootstrap {
       return this.cache.result;
     }
     return this.refresh();
+  }
+
+  /** Reads one hackathon from a pasted link, to fill the Add hackathon form. */
+  async scan(url: string): Promise<ScanResult> {
+    try {
+      return await scanLink(url, (key) => this.cache?.result.hackathons.find((h) => linkKey(h.url) === key) ?? null);
+    } catch (error) {
+      if (error instanceof ScanError) throw new BadRequestException(error.message);
+      this.logger.warn(`Scan of ${url} failed: ${(error as Error).message}`);
+      throw new BadRequestException('Grind could not read that page. Try again, or fill the form in yourself.');
+    }
   }
 
   /** Many callers at once share one fetch. */

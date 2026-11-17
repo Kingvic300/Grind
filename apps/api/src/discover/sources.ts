@@ -65,14 +65,14 @@ export const clean = (v: unknown): string | null => {
   return t && !/^(nil|nill|null|none|n\/a|-)$/i.test(t) ? t : null;
 };
 
-const https = (v: string | null | undefined): string | null => {
+export const https = (v: string | null | undefined): string | null => {
   if (!v) return null;
   if (v.startsWith('//')) return `https:${v}`;
   return /^https?:\/\//i.test(v) ? v : null;
 };
 
 /** Calendar day of a moment in a time zone, as "YYYY-MM-DD". */
-function dayIn(iso: string | Date | null | undefined, timeZone = 'UTC'): string | null {
+export function dayIn(iso: string | Date | null | undefined, timeZone = 'UTC'): string | null {
   if (!iso) return null;
   const d = typeof iso === 'string' ? new Date(iso) : iso;
   if (Number.isNaN(d.getTime())) return null;
@@ -83,7 +83,7 @@ function dayIn(iso: string | Date | null | undefined, timeZone = 'UTC'): string 
   }
 }
 
-const iso = (v: unknown): string | null => {
+export const iso = (v: unknown): string | null => {
   if (typeof v !== 'string' && typeof v !== 'number') return null;
   const d = typeof v === 'number' ? new Date(v * 1000) : new Date(v);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
@@ -122,7 +122,7 @@ export function parseDevpostRange(text: string): { start: string | null; end: st
   };
 }
 
-type DevpostItem = {
+export type DevpostItem = {
   id: number;
   title: string;
   url: string;
@@ -135,32 +135,35 @@ type DevpostItem = {
   invite_only?: boolean;
 };
 
+export function devpostListing(h: DevpostItem): RawListing {
+  const place = h.displayed_location?.location ?? null;
+  const { start, end } = parseDevpostRange(h.submission_period_dates ?? '');
+  const prize = clean(h.prize_amount);
+  return {
+    id: `devpost:${h.id}`,
+    source: 'devpost',
+    name: h.title,
+    organizer: clean(h.organization_name),
+    url: h.url,
+    format: formatOf(place),
+    location: place && !/^online$/i.test(place) ? place : null,
+    startDate: start,
+    endDate: end,
+    registrationDeadline: null,
+    submissionDeadline: null,
+    prize: prize && prize !== '$0' ? `${prize} in prizes` : null,
+    tags: (h.themes ?? []).map((t) => t.name),
+    imageUrl: https(h.thumbnail_url),
+  };
+}
+
 export async function fetchDevpost(): Promise<RawListing[]> {
   const out: RawListing[] = [];
   for (let page = 1; page <= 5; page++) {
     const res = await get(`https://devpost.com/api/hackathons?status[]=upcoming&status[]=open&page=${page}`);
     const data = (await res.json()) as { hackathons: DevpostItem[]; meta?: { total_count?: number; per_page?: number } };
     for (const h of data.hackathons ?? []) {
-      if (h.invite_only) continue;
-      const place = h.displayed_location?.location ?? null;
-      const { start, end } = parseDevpostRange(h.submission_period_dates ?? '');
-      const prize = clean(h.prize_amount);
-      out.push({
-        id: `devpost:${h.id}`,
-        source: 'devpost',
-        name: h.title,
-        organizer: clean(h.organization_name),
-        url: h.url,
-        format: formatOf(place),
-        location: place && !/^online$/i.test(place) ? place : null,
-        startDate: start,
-        endDate: end,
-        registrationDeadline: null,
-        submissionDeadline: null,
-        prize: prize && prize !== '$0' ? `${prize} in prizes` : null,
-        tags: (h.themes ?? []).map((t) => t.name),
-        imageUrl: https(h.thumbnail_url),
-      });
+      if (!h.invite_only) out.push(devpostListing(h));
     }
     const total = data.meta?.total_count ?? 0;
     const perPage = data.meta?.per_page ?? 40;
@@ -171,7 +174,7 @@ export async function fetchDevpost(): Promise<RawListing[]> {
 
 // ---------- DoraHacks ----------
 
-type DoraItem = {
+export type DoraItem = {
   id: number;
   uname: string;
   title: string;
@@ -189,39 +192,41 @@ type DoraItem = {
   bonus_token?: string;
 };
 
+export function doraListing(h: DoraItem): RawListing {
+  const amount = h.bonus_price ?? 0;
+  const token = h.bonus_token || 'USD';
+  return {
+    id: `dorahacks:${h.id}`,
+    source: 'dorahacks',
+    name: h.title,
+    organizer: clean(h.owner?.name),
+    url: `https://dorahacks.io/hackathon/${encodeURIComponent(h.uname)}`,
+    format: formatOf(h.venue_form),
+    location: clean([h.venue_name, h.venue_address].filter(Boolean).join(', ')),
+    startDate: h.timeline_start ? dayIn(new Date(h.timeline_start * 1000)) : null,
+    endDate: h.timeline_end ? dayIn(new Date(h.timeline_end * 1000)) : null,
+    registrationDeadline: null,
+    // DoraHacks closes BUIDL submission when the timeline ends.
+    submissionDeadline: h.timeline_end ? iso(h.timeline_end) : null,
+    prize: amount > 0 ? `${amount.toLocaleString('en-US')} ${token} in prizes` : null,
+    tags: [...(h.tags ?? '').split(','), ...(h.ecosystem ?? '').split(',')].map((t) => t.trim()).filter(Boolean).slice(0, 8),
+    imageUrl: https(h.image_url),
+  };
+}
+
 export async function fetchDoraHacks(): Promise<RawListing[]> {
   const out: RawListing[] = [];
   for (const status of ['ongoing', 'upcoming']) {
     const res = await get(`https://dorahacks.io/api/v1/hub/hackathons?page=1&page_size=100&status=${status}`);
     const data = (await res.json()) as { results: DoraItem[] };
-    for (const h of data.results ?? []) {
-      const amount = h.bonus_price ?? 0;
-      const token = h.bonus_token || 'USD';
-      out.push({
-        id: `dorahacks:${h.id}`,
-        source: 'dorahacks',
-        name: h.title,
-        organizer: clean(h.owner?.name),
-        url: `https://dorahacks.io/hackathon/${encodeURIComponent(h.uname)}`,
-        format: formatOf(h.venue_form),
-        location: clean([h.venue_name, h.venue_address].filter(Boolean).join(', ')),
-        startDate: h.timeline_start ? dayIn(new Date(h.timeline_start * 1000)) : null,
-        endDate: h.timeline_end ? dayIn(new Date(h.timeline_end * 1000)) : null,
-        registrationDeadline: null,
-        // DoraHacks closes BUIDL submission when the timeline ends.
-        submissionDeadline: h.timeline_end ? iso(h.timeline_end) : null,
-        prize: amount > 0 ? `${amount.toLocaleString('en-US')} ${token} in prizes` : null,
-        tags: [...(h.tags ?? '').split(','), ...(h.ecosystem ?? '').split(',')].map((t) => t.trim()).filter(Boolean).slice(0, 8),
-        imageUrl: https(h.image_url),
-      });
-    }
+    for (const h of data.results ?? []) out.push(doraListing(h));
   }
   return out;
 }
 
 // ---------- Devfolio ----------
 
-type DevfolioItem = {
+export type DevfolioItem = {
   uuid: string;
   name: string;
   slug: string;
@@ -239,6 +244,27 @@ type DevfolioItem = {
   hackathon_setting?: { reg_ends_at?: string | null; logo?: string | null; site?: string | null };
 };
 
+export function devfolioListing(h: DevfolioItem): RawListing {
+  const tz = h.timezone || 'UTC';
+  return {
+    id: `devfolio:${h.uuid}`,
+    source: 'devfolio',
+    name: h.name,
+    organizer: null,
+    url: `https://${h.slug}.devfolio.co/`,
+    format: h.is_online ? 'ONLINE' : 'IN_PERSON',
+    location: h.is_online ? null : clean([h.city, h.state, h.country].filter(Boolean).join(', ')),
+    startDate: dayIn(h.starts_at, tz),
+    endDate: dayIn(h.ends_at, tz),
+    registrationDeadline: iso(h.hackathon_setting?.reg_ends_at),
+    submissionDeadline: null,
+    prize: null,
+    tags: (h.themes ?? []).map((t) => t?.name).filter((t): t is string => Boolean(t)),
+    imageUrl: https(h.hackathon_setting?.logo),
+    inlineDescription: [h.tagline, h.desc].filter(Boolean).join('. '),
+  };
+}
+
 export async function fetchDevfolio(): Promise<RawListing[]> {
   const out: RawListing[] = [];
   const seen = new Set<string>();
@@ -252,24 +278,7 @@ export async function fetchDevfolio(): Promise<RawListing[]> {
     for (const { _source: h } of data.hits?.hits ?? []) {
       if (h.private || seen.has(h.uuid)) continue;
       seen.add(h.uuid);
-      const tz = h.timezone || 'UTC';
-      out.push({
-        id: `devfolio:${h.uuid}`,
-        source: 'devfolio',
-        name: h.name,
-        organizer: null,
-        url: `https://${h.slug}.devfolio.co/`,
-        format: h.is_online ? 'ONLINE' : 'IN_PERSON',
-        location: h.is_online ? null : clean([h.city, h.state, h.country].filter(Boolean).join(', ')),
-        startDate: dayIn(h.starts_at, tz),
-        endDate: dayIn(h.ends_at, tz),
-        registrationDeadline: iso(h.hackathon_setting?.reg_ends_at),
-        submissionDeadline: null,
-        prize: null,
-        tags: (h.themes ?? []).map((t) => t?.name).filter((t): t is string => Boolean(t)),
-        imageUrl: https(h.hackathon_setting?.logo),
-        inlineDescription: [h.tagline, h.desc].filter(Boolean).join('. '),
-      });
+      out.push(devfolioListing(h));
     }
   }
   return out;
@@ -326,7 +335,7 @@ export async function fetchMlh(): Promise<RawListing[]> {
 }
 
 /** Reads the JSON a Next.js page embeds for its first render. */
-function nextData<T>(html: string): T | null {
+export function nextData<T>(html: string): T | null {
   const m = html.match(/<script id="__NEXT_DATA__" type="application\/json"[^>]*>([\s\S]*?)<\/script>/);
   if (!m) return null;
   try {
@@ -337,7 +346,7 @@ function nextData<T>(html: string): T | null {
 }
 
 /** "150,000 INR in prizes" from amounts that may be in several currencies. */
-function prizeText(amounts: { amount: number | null | undefined; currency: string | null | undefined }[]): string | null {
+export function prizeText(amounts: { amount: number | null | undefined; currency: string | null | undefined }[]): string | null {
   const totals = new Map<string, number>();
   for (const { amount, currency } of amounts) {
     if (!amount || amount <= 0) continue;

@@ -99,11 +99,19 @@ const HYBRID_TEXT = /\b(hybrid (hackathon|event|format|competition)|online and (
  * Falls back to what the site said when the text does not say clearly.
  */
 export function formatFromText(text: string, site: ListingFormat): ListingFormat {
+  const said = formatInText(text);
+  if (said === 'ONLINE') return site === 'HYBRID' ? 'HYBRID' : 'ONLINE';
+  if (said === 'IN_PERSON') return site === 'ONLINE' ? 'HYBRID' : site;
+  return said ?? site;
+}
+
+/** Where the text says the event happens, or null when it does not say clearly. */
+export function formatInText(text: string): ListingFormat | null {
   if (HYBRID_TEXT.test(text)) return 'HYBRID';
   const online = ONLINE_TEXT.test(text);
   const inPerson = IN_PERSON_TEXT.test(text);
   if (online && inPerson) return 'HYBRID';
-  if (online) return site === 'HYBRID' ? 'HYBRID' : 'ONLINE';
-  if (inPerson) return site === 'ONLINE' ? 'HYBRID' : site;
-  return site;
+  if (online) return 'ONLINE';
+  if (inPerson) return 'IN_PERSON';
+  return null;
 }

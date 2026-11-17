@@ -190,6 +190,25 @@ export const CATEGORY_LABEL = {
 } as const;
 export type Category = keyof typeof CATEGORY_LABEL;
 
+/** Details read from a pasted hackathon link. A draft for the form; nothing is saved yet. */
+export type ScanResult = {
+  name: string;
+  organizer: string | null;
+  url: string;
+  format: Format | null;
+  location: string | null;
+  /** "YYYY-MM-DD" */
+  startDate: string | null;
+  endDate: string | null;
+  /** An ISO moment, or a "YYYY-MM-DD" day when the page gave no time. */
+  registrationDeadline: string | null;
+  submissionDeadline: string | null;
+  prize: string | null;
+  stack: string[];
+  /** Where the details came from, such as "Devpost" or the page's host. */
+  site: string;
+};
+
 export type DiscoverResult = {
   fetchedAt: string;
   sources: { source: Source; label: string; ok: boolean; count: number; error?: string }[];

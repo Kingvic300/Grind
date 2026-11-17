@@ -1,7 +1,7 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react';
-import { useDeleteHackathon, useHackathons, useSaveHackathon, useSpaces } from '../lib/hooks';
-import { dateKey, toLocalInput } from '../lib/time';
-import { FORMATS, FORMAT_LABEL, STATUSES, STATUS_LABEL, type Format, type Hackathon, type HackathonInput, type Status } from '../lib/types';
+import { useDeleteHackathon, useHackathons, useSaveHackathon, useScanLink, useSpaces } from '../lib/hooks';
+import { dateKey, localDayKey, toLocalInput } from '../lib/time';
+import { FORMATS, FORMAT_LABEL, STATUSES, STATUS_LABEL, type Format, type Hackathon, type HackathonInput, type ScanResult, type Status } from '../lib/types';
 import { OpenSite } from './Bits';
 import { IconClose } from './Icons';
 import { Spinner } from './Loading';
@@ -61,6 +61,34 @@ function toInput(f: FormState, withAssignees = false): HackathonInput {
   };
 }
 
+/** Same link with or without scheme, www, query or trailing slash. */
+const linkKey = (url: string) => url.toLowerCase().replace(/^https?:\/\/(www\.)?/, '').replace(/[?#].*$/, '').replace(/\/+$/, '');
+
+/** A scanned deadline for a datetime-local input. A bare day means the page gave no time, so it closes at the end of that day. */
+const deadlineInput = (v: string | null) => (!v ? '' : v.length === 10 ? `${v}T23:59` : toLocalInput(v));
+
+/** What a scan found, as form values. Empty means not found. */
+function scannedFields(s: ScanResult): Partial<Record<keyof FormState, string>> {
+  return {
+    name: s.name.slice(0, 120), organizer: s.organizer?.slice(0, 120) ?? '', url: s.url,
+    format: s.format ?? '', location: s.location?.slice(0, 120) ?? '',
+    startDate: s.startDate ?? '', endDate: s.endDate ?? '',
+    registrationDeadline: deadlineInput(s.registrationDeadline), submissionDeadline: deadlineInput(s.submissionDeadline),
+    techStack: s.stack.join(', '),
+  };
+}
+
+/** Fills the form with what the scan found. Fields the scan missed keep what the person typed. */
+function applyScan(f: FormState, s: ScanResult): FormState {
+  const next: FormState = { ...f };
+  for (const [key, value] of Object.entries(scannedFields(s))) {
+    if (value) (next as Record<string, unknown>)[key] = value;
+  }
+  // The prize pool has no field of its own; Discover keeps it in the notes too.
+  if (s.prize && !f.notes.trim()) next.notes = `${s.prize}.`;
+  return next;
+}
+
 /**
  * Only the fields this person changed. In a team someone else may have saved other
  * fields since the drawer opened, and sending everything would overwrite their work.
@@ -82,8 +110,12 @@ export function HackathonDrawer({ hackathon, onClose }: { hackathon: Hackathon |
   const remove = useDeleteHackathon();
   const spaces = useSpaces();
   const [tab, setTab] = useState<Tab>('details');
+  const listed = useHackathons().data;
   // Fresh counts for the tab badges; the prop is a snapshot from when the drawer opened.
-  const live = useHackathons().data?.find((h) => h.id === hackathon?.id) ?? hackathon;
+  const live = listed?.find((h) => h.id === hackathon?.id) ?? hackathon;
+  const scan = useScanLink();
+  const [scanUrl, setScanUrl] = useState('');
+  const [scanNotes, setScanNotes] = useState<string[]>([]);
   const team = hackathon?.spaceId ? (spaces.data?.find((s) => s.id === hackathon.spaceId) ?? null) : null;
   const assignable = Boolean(hackathon && team);
   const busy = save.isPending || remove.isPending;
@@ -100,6 +132,25 @@ export function HackathonDrawer({ hackathon, onClose }: { hackathon: Hackathon |
     value: form[key] as string,
     onChange: (e: { target: { value: string } }) => set(key, e.target.value as never),
   });
+
+  const runScan = (value = scanUrl) => {
+    const url = value.trim();
+    if (!url || scan.isPending) return;
+    setScanNotes([]);
+    setError('');
+    scan.mutate(url, {
+      onSuccess: (s) => {
+        setForm((f) => applyScan(f, s));
+        const found = Object.entries(scannedFields(s)).filter(([key, value]) => value && key !== 'url').length + (s.prize ? 1 : 0);
+        const dupe = listed?.find((h) => h.url && linkKey(h.url) === linkKey(s.url));
+        setScanNotes([
+          `Filled ${found} ${found === 1 ? 'field' : 'fields'} from ${s.site}. Check them, then add it.`,
+          ...(dupe ? [`“${dupe.name}” with this link is already in this list.`] : []),
+          ...(s.endDate && s.endDate < localDayKey(new Date()) ? ['This hackathon looks like it has already ended.'] : []),
+        ]);
+      },
+    });
+  };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -161,6 +212,56 @@ export function HackathonDrawer({ hackathon, onClose }: { hackathon: Hackathon |
         )}
 
         <div className="drawer-body" hidden={tab !== 'details'}>
+          {!hackathon && (
+            <fieldset className="scan-link">
+              <legend>Add from a link</legend>
+              <div className="scan-row">
+                <label className="field" htmlFor="f-scan">
+                  <span className="sr-only">Hackathon link</span>
+                  <input
+                    id="f-scan"
+                    value={scanUrl}
+                    inputMode="url"
+                    maxLength={500}
+                    placeholder="Paste a Devpost, DoraHacks or event page link"
+                    autoFocus
+                    onChange={(e) => {
+                      setScanUrl(e.target.value);
+                      if (scan.isError) scan.reset();
+                    }}
+                    onPaste={(e) => {
+                      // Pasting into the empty box scans at once; there is nothing else to do with a link.
+                      const pasted = e.clipboardData.getData('text').trim();
+                      if (!pasted || scanUrl.trim()) return;
+                      e.preventDefault();
+                      setScanUrl(pasted);
+                      runScan(pasted);
+                    }}
+                    onKeyDown={(e) => {
+                      // Enter scans the link; it must not submit the half-filled form.
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        runScan();
+                      }
+                    }}
+                  />
+                </label>
+                <button type="button" className="btn btn-outline" onClick={() => runScan()} disabled={scan.isPending || !scanUrl.trim()}>
+                  {scan.isPending && <Spinner />}
+                  {scan.isPending ? 'Scanning' : 'Scan'}
+                </button>
+              </div>
+              {scan.isError ? (
+                <p className="form-error" role="alert">{scan.error.message}</p>
+              ) : scanNotes.length ? (
+                <ul className="scan-notes" role="status">
+                  {scanNotes.map((note) => <li key={note}>{note}</li>)}
+                </ul>
+              ) : (
+                <p className="hint">Grind reads the name, dates, deadlines and prizes from the page. Or fill the form in yourself.</p>
+              )}
+            </fieldset>
+          )}
           {assignable && team && (
             <fieldset>
               <legend>Assigned to</legend>
@@ -172,7 +273,7 @@ export function HackathonDrawer({ hackathon, onClose }: { hackathon: Hackathon |
             <legend>Basics</legend>
             <label className="field" htmlFor="f-name">
               <span>Name</span>
-              <input {...field('name')} required maxLength={120} placeholder="Open Data Jam" autoFocus />
+              <input {...field('name')} required maxLength={120} placeholder="Open Data Jam" autoFocus={Boolean(hackathon)} />
             </label>
             <div className="field-row">
               <label className="field" htmlFor="f-organizer">
