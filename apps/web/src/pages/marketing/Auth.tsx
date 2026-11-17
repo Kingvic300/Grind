@@ -59,6 +59,8 @@ export function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
       <main className="auth-main">
         <Logo />
         <form className="auth-form" onSubmit={submit}>
+          {/* Phones skip the terminal panel, so a one-line prompt carries the same idea. */}
+          <p className="auth-prompt" aria-hidden="true"><b>&gt;</b> grind {signup ? 'signup' : 'login'}<i /></p>
           <h1>{signup ? 'Create your Grind account' : 'Log in to Grind'}</h1>
           <p className="auth-lede">
             {signup ? 'Start tracking your hackathons in about a minute.' : 'Pick up where you left off.'}

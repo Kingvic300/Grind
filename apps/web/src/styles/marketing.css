@@ -176,6 +176,7 @@
 .terminal .hot { color: var(--accent-hover); font-weight: 600; }
 .terminal-cursor { display: inline-block; width: 11px; height: 4px; background: var(--accent); border-radius: 1px; animation: blink 1.15s steps(1) infinite; }
 .auth-side-note { color: #9aa0b3; font-size: 14px; }
+.auth-prompt { display: none; }
 
 @media (max-width: 960px) {
   .hero { padding-block: 48px 56px; }
@@ -189,8 +190,24 @@
   /* The status flow wraps in a narrow cell, so drop the connectors. */
   .bento-flow .pill + .pill { margin-left: 0; }
   .bento-flow .pill + .pill::before { display: none; }
-  .auth { grid-template-columns: 1fr; }
+  .auth { grid-template-columns: minmax(0, 1fr); background: radial-gradient(circle at 100% 0%, rgb(242 84 27 / 0.13), transparent 340px), var(--surface); }
   .auth-side { display: none; }
+  /* Phones and tablets: the form sits near the top, under a warm glow, so the keyboard never hides it. */
+  .auth-main { padding: 20px 20px 40px; gap: 0; }
+  .auth-form { margin: clamp(32px, 9vh, 88px) auto 0; gap: 16px; }
+  .auth-prompt {
+    display: inline-flex; align-items: center; gap: 8px; justify-self: start;
+    font-family: var(--font-mono); font-size: 14px; color: #fff; background: var(--ink);
+    padding: 8px 14px; border-radius: 10px;
+  }
+  .auth-prompt b { color: var(--accent); }
+  .auth-prompt i { width: 9px; height: 3px; background: var(--accent); align-self: flex-end; margin-bottom: 5px; animation: blink 1.15s steps(1) infinite; }
+  .auth-form h1 { font-size: clamp(28px, 8vw, 34px); line-height: 1.1; }
+  .auth-lede { margin-top: -6px; }
+  /* 16px text stops iOS from zooming into the field on focus. */
+  .auth-form .field input { height: 48px; font-size: 16px; border-radius: 12px; }
+  .auth-form .btn { margin-top: 4px; }
+  .auth-switch { text-align: center; }
 }
 @media (max-width: 680px) {
   .mkt-wrap { padding-inline: 16px; }
