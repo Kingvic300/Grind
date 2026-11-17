@@ -161,6 +161,9 @@ button.nextup:hover { border-color: rgb(242 84 27 / 0.6); }
 .segmented button:first-child { border-radius: 999px 0 0 999px; margin-left: 0; }
 .segmented button:last-child { border-radius: 0 999px 999px 0; }
 .filter-row-selects { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.hide-viewed { font-size: 14px; }
+.hide-viewed b { font-size: 12px; font-weight: 600; color: var(--muted); }
+.hide-viewed:has(input:disabled) { cursor: not-allowed; color: var(--muted); }
 .filter-result { font-size: 13.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .drawer-byline { font-size: 13px; color: var(--muted); }
 

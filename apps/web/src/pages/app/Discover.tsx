@@ -338,6 +338,9 @@ export function DiscoverPage() {
   const [within, setWithin] = useState<Window>('any');
   const [sort, setSort] = useState<Sort>('closing');
   const [showAllStack, setShowAllStack] = useState(false);
+  // Listings viewed when "Hide viewed" was turned on. A snapshot, so a card opened
+  // afterwards stays put instead of vanishing with its details dialog.
+  const [hidden, setHidden] = useState<Set<string> | null>(null);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
@@ -354,6 +357,7 @@ export function DiscoverPage() {
   // Every filter except the one being counted, so chip counts show what clicking would give.
   const matches = (h: Listing, skip?: Skip) => {
     if (showForYou && interests && !matchesInterests(h, interests)) return false;
+    if (hidden?.has(h.id)) return false;
     const q = search.trim().toLowerCase();
     if (q && ![h.name, h.organizer, h.location, h.description, ...h.tags, ...h.stack].some((v) => v?.toLowerCase().includes(q))) return false;
     if (skip !== 'show' && show !== 'all' && h.kind !== show) return false;
@@ -377,7 +381,7 @@ export function DiscoverPage() {
       return (nextClose(a, now)?.at ?? Infinity) - (nextClose(b, now)?.at ?? Infinity);
     });
 
-  const activeFilters = topics.size + stacks.size + sources.size + (show !== 'all' ? 1 : 0) + (kind !== 'all' ? 1 : 0) + (format !== 'ALL' ? 1 : 0) + (within !== 'any' ? 1 : 0) + (search ? 1 : 0);
+  const activeFilters = topics.size + stacks.size + sources.size + (show !== 'all' ? 1 : 0) + (kind !== 'all' ? 1 : 0) + (format !== 'ALL' ? 1 : 0) + (within !== 'any' ? 1 : 0) + (search ? 1 : 0) + (hidden ? 1 : 0);
   const clearAll = () => {
     setSearch('');
     setKind('all');
@@ -387,6 +391,7 @@ export function DiscoverPage() {
     setSources(new Set());
     setFormat('ALL');
     setWithin('any');
+    setHidden(null);
   };
 
   const add = (h: Listing) => {
@@ -534,6 +539,15 @@ export function DiscoverPage() {
             <select id="discover-within" value={within} onChange={(e) => setWithin(e.target.value as Window)}>
               {WINDOWS.map((w) => <option key={w.value} value={w.value}>{w.label}</option>)}
             </select>
+          </label>
+          <label className="check hide-viewed">
+            <input
+              type="checkbox"
+              checked={hidden !== null}
+              onChange={(e) => setHidden(e.target.checked ? new Set(viewed) : null)}
+              disabled={!hidden && !all.some((h) => viewed.has(h.id))}
+            />
+            Hide viewed <b>{all.filter((h) => viewed.has(h.id)).length}</b>
           </label>
           <span className="spacer" />
           <span className="filter-result" aria-live="polite">
