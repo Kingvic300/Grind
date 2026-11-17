@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PageHead } from '../../components/AppShell';
-import { IconCheck, IconPlus, IconSearch } from '../../components/Icons';
+import { IconCheck, IconClose, IconPlus, IconSearch } from '../../components/Icons';
 import { CardsSkeleton, Spinner } from '../../components/Loading';
 import { useDiscover, useHackathons, useMe, useNow, useSaveHackathon, useSpaces } from '../../lib/hooks';
 import { useSpaceId } from '../../lib/space';
+import { useViewedListings } from '../../lib/viewed';
 import { formatMoment, formatRange } from '../../lib/time';
 import {
   CATEGORY_LABEL,
@@ -103,25 +104,155 @@ function DeadlineTag({ closing, now }: { closing: Closing | null; now: number })
   );
 }
 
-function ListingCard({ h, added, onAdd, busy, now, match }: { h: Listing; added: boolean; onAdd: () => void; busy: boolean; now: number; match: boolean }) {
+type CardProps = { h: Listing; added: boolean; onAdd: () => void; busy: boolean; now: number; match: boolean; viewed: boolean; onView: () => void };
+
+function Badges({ h, match, viewed }: { h: Listing; match: boolean; viewed: boolean }) {
   const web3 = h.categories.includes('web3');
   return (
-    <article className="listing">
+    <span className="listing-badges">
+      <span className={`source source-${h.source}`}>{SOURCE_LABEL[h.source]}</span>
+      {h.kind === 'bounty' && <span className="kind kind-bounty">Bounty</span>}
+      <span className={`kind kind-${web3 ? 'web3' : 'web2'}`}>{web3 ? 'Web3' : 'Web2'}</span>
+      {match && <span className="kind kind-match">Matches you</span>}
+      {viewed && <span className="kind kind-viewed">Viewed</span>}
+    </span>
+  );
+}
+
+function ListingImage({ h }: { h: Listing }) {
+  return h.imageUrl ? (
+    <img src={h.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
+  ) : (
+    <span className="listing-img-empty" aria-hidden="true">{h.name.slice(0, 1)}</span>
+  );
+}
+
+function ListingActions({ h, added, onAdd, busy, onView }: Pick<CardProps, 'h' | 'added' | 'onAdd' | 'busy' | 'onView'>) {
+  return (
+    <>
+      {added ? (
+        <span className="listing-added"><IconCheck /> In this list</span>
+      ) : (
+        <button type="button" className="btn btn-ink" onClick={onAdd} disabled={busy}>
+          {busy ? <Spinner /> : <IconPlus />} {busy ? 'Adding' : 'Add to list'}
+        </button>
+      )}
+      <a className="btn btn-quiet" href={h.url} target="_blank" rel="noopener noreferrer" onClick={onView} onAuxClick={onView}>Open site</a>
+    </>
+  );
+}
+
+/** Everything known about a listing, so people can judge it without leaving Grind. */
+function ListingDetails({ h, added, onAdd, busy, now, match, viewed, onView, onClose }: CardProps & { onClose: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  // showModal gives a focus trap and Esc-to-close for free.
+  useEffect(() => {
+    const el = dialog.current;
+    if (el && !el.open) el.showModal();
+  }, []);
+
+  const deadlines = [
+    h.registrationDeadline && { label: 'Registration closes', at: h.registrationDeadline },
+    h.submissionDeadline && { label: 'Submission closes', at: h.submissionDeadline },
+  ].filter((d): d is { label: string; at: string } => Boolean(d));
+  const topics = h.categories.filter((c) => c !== 'web3');
+  const tags = h.tags.filter((t) => !h.stack.some((s) => s.toLowerCase() === t.toLowerCase()));
+
+  return (
+    <dialog
+      ref={dialog}
+      className="modal listing-modal"
+      onClose={onClose}
+      onClick={(e) => e.target === dialog.current && onClose()}
+      aria-labelledby="listing-details-title"
+    >
+      <div className="modal-panel">
+        <header className="drawer-head listing-modal-head">
+          <div className="listing-top">
+            <ListingImage h={h} />
+            <div className="listing-head">
+              <Badges h={h} match={match} viewed={viewed} />
+              <h2 id="listing-details-title">{h.name}</h2>
+              {h.organizer && <p className="listing-org">{h.organizer}</p>}
+            </div>
+          </div>
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">
+            <IconClose />
+          </button>
+        </header>
+
+        <div className="drawer-body listing-modal-body">
+          <DeadlineTag closing={nextClose(h, now)} now={now} />
+
+          <dl className="listing-facts">
+            <div>
+              <dt>Dates</dt>
+              <dd>{formatRange(toDay(h.startDate), toDay(h.endDate))}</dd>
+            </div>
+            <div>
+              <dt>Where</dt>
+              <dd>{h.location ?? FORMAT_LABEL[h.format]}</dd>
+            </div>
+            {deadlines.map((d) => (
+              <div key={d.label}>
+                <dt>{d.label}</dt>
+                <dd>{formatMoment(d.at)}</dd>
+              </div>
+            ))}
+            {h.prize && (
+              <div>
+                <dt>Prizes</dt>
+                <dd className="listing-prize">{h.prize}</dd>
+              </div>
+            )}
+          </dl>
+
+          <section className="listing-about" aria-label="About">
+            <h3>About</h3>
+            {h.description ? (
+              <p className="listing-full-desc">{h.description}</p>
+            ) : (
+              <p className="hint">{SOURCE_LABEL[h.source]} does not share a description with Grind. Open the site to read it.</p>
+            )}
+          </section>
+
+          {(topics.length > 0 || h.stack.length > 0 || tags.length > 0) && (
+            <section className="listing-about" aria-label="Topics and tech">
+              <h3>Topics and tech</h3>
+              <span className="chips">
+                {topics.map((c) => <span className="chip chip-topic" key={c}>{CATEGORY_LABEL[c]}</span>)}
+                {h.stack.map((t) => <span className="chip chip-stack" key={`s-${t}`}>{t}</span>)}
+                {tags.map((t) => <span className="chip" key={`t-${t}`}>{t}</span>)}
+              </span>
+            </section>
+          )}
+        </div>
+
+        <footer className="drawer-foot">
+          <div className="drawer-actions">
+            <ListingActions h={h} added={added} onAdd={onAdd} busy={busy} onView={onView} />
+          </div>
+        </footer>
+      </div>
+    </dialog>
+  );
+}
+
+function ListingCard(props: CardProps) {
+  const { h, added, onAdd, busy, now, match, viewed, onView } = props;
+  const [open, setOpen] = useState(false);
+  const openDetails = () => {
+    setOpen(true);
+    onView();
+  };
+  return (
+    <article className={`listing${viewed ? ' is-viewed' : ''}`}>
       <div className="listing-top">
-        {h.imageUrl ? (
-          <img src={h.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
-        ) : (
-          <span className="listing-img-empty" aria-hidden="true">{h.name.slice(0, 1)}</span>
-        )}
+        <ListingImage h={h} />
         <div className="listing-head">
-          <span className="listing-badges">
-            <span className={`source source-${h.source}`}>{SOURCE_LABEL[h.source]}</span>
-            {h.kind === 'bounty' && <span className="kind kind-bounty">Bounty</span>}
-            <span className={`kind kind-${web3 ? 'web3' : 'web2'}`}>{web3 ? 'Web3' : 'Web2'}</span>
-            {match && <span className="kind kind-match">Matches you</span>}
-          </span>
+          <Badges h={h} match={match} viewed={viewed} />
           <h2>
-            <a href={h.url} target="_blank" rel="noopener noreferrer">{h.name}</a>
+            <button type="button" className="listing-title" onClick={openDetails}>{h.name}</button>
           </h2>
           {h.organizer && <p className="listing-org">{h.organizer}</p>}
         </div>
@@ -135,6 +266,9 @@ function ListingCard({ h, added, onAdd, busy, now, match }: { h: Listing; added:
         {h.location ?? FORMAT_LABEL[h.format]}
       </p>
       {h.description && <p className="listing-desc">{h.description}</p>}
+      <button type="button" className="link listing-more" onClick={openDetails}>
+        {h.description ? 'Read more' : 'Details'}
+      </button>
       {h.prize && <p className="listing-prize">{h.prize}</p>}
 
       {(h.categories.length > 0 || h.stack.length > 0) && (
@@ -145,15 +279,9 @@ function ListingCard({ h, added, onAdd, busy, now, match }: { h: Listing; added:
       )}
 
       <div className="listing-actions">
-        {added ? (
-          <span className="listing-added"><IconCheck /> In this list</span>
-        ) : (
-          <button type="button" className="btn btn-ink" onClick={onAdd} disabled={busy}>
-            {busy ? <Spinner /> : <IconPlus />} {busy ? 'Adding' : 'Add to list'}
-          </button>
-        )}
-        <a className="btn btn-quiet" href={h.url} target="_blank" rel="noopener noreferrer">Open site</a>
+        <ListingActions h={h} added={added} onAdd={onAdd} busy={busy} onView={onView} />
       </div>
+      {open && <ListingDetails {...props} onClose={() => setOpen(false)} />}
     </article>
   );
 }
@@ -198,6 +326,7 @@ export function DiscoverPage() {
   const spaces = useSpaces();
   const { spaceId } = useSpaceId();
   const save = useSaveHackathon();
+  const { viewed, markViewed } = useViewedListings();
   const now = useNow(60_000);
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState<Kind>('all');
@@ -417,7 +546,7 @@ export function DiscoverPage() {
       {rows.length ? (
         <div className="listings">
           {rows.map((h) => (
-            <ListingCard key={h.id} h={h} now={now} match={Boolean(interests && matchesInterests(h, interests))} added={inList.has(linkKey(h.url))} busy={addingId === h.id} onAdd={() => add(h)} />
+            <ListingCard key={h.id} h={h} now={now} match={Boolean(interests && matchesInterests(h, interests))} added={inList.has(linkKey(h.url))} busy={addingId === h.id} onAdd={() => add(h)} viewed={viewed.has(h.id)} onView={() => markViewed(h.id)} />
           ))}
         </div>
       ) : (
