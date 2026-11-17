@@ -751,5 +751,6 @@ export const SOURCES: Record<Source, { label: string; fetch: () => Promise<RawLi
   hackerearth: { label: 'HackerEarth', fetch: fetchHackerEarth },
   hackclub: { label: 'Hack Club', fetch: fetchHackClub },
   // Arrow functions, because linkedin.ts imports this file and may not have loaded yet here.
+  // Off until TAVILY_API_KEY is set.
   linkedin: { label: 'LinkedIn', fetch: () => fetchLinkedIn(), enabled: () => linkedInEnabled() },
 };
