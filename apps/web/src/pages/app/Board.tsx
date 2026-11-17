@@ -1,6 +1,6 @@
 import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { useState } from 'react';
-import { EmptyState, PageHead, useShell } from '../../components/AppShell';
+import { AddButton, EmptyState, PageHead, useShell } from '../../components/AppShell';
 import { Countdown, MineToggle, OpenSite } from '../../components/Bits';
 import { IconComment, IconTasks, IconTrophy } from '../../components/Icons';
 import { BoardSkeleton } from '../../components/Loading';
@@ -110,6 +110,7 @@ export function BoardPage() {
     <>
       <PageHead title="Board" sub={spaceId ? 'Your team board. Drag a card to change its status. Click a card to assign people, add tasks and comment.' : 'Drag a card to change its status. Click a card to edit it.'}>
         {spaceId && <MineToggle mine={mine} onChange={setMine} count={assignedToMe.length} />}
+        {all.length > 0 && <AddButton />}
       </PageHead>
       {save.isError && <p className="form-error" role="alert">That move was not saved. {save.error.message}</p>}
       {!all.length ? (

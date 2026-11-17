@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { PageHead, useShell } from '../../components/AppShell';
+import { AddButton, PageHead, useShell } from '../../components/AppShell';
 import { IconChevronLeft, IconChevronRight } from '../../components/Icons';
 import { CalendarSkeleton } from '../../components/Loading';
 import { useHackathons, useMe } from '../../lib/hooks';
@@ -123,6 +123,7 @@ export function CalendarPage() {
           <button type="button" className="cal-today" onClick={() => setCursor({ year: today.getFullYear(), month: today.getMonth() })} disabled={isThisMonth}>Today</button>
           <button type="button" onClick={() => shift(1)} aria-label="Next month"><IconChevronRight /></button>
         </div>
+        <AddButton />
       </PageHead>
 
       <div className="cal-legend" aria-hidden="true">

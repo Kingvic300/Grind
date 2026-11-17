@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { EmptyState, PageHead, useShell } from '../../components/AppShell';
+import { AddButton, EmptyState, PageHead, useShell } from '../../components/AppShell';
 import { Countdown, MineToggle, OpenSite, StatusPill } from '../../components/Bits';
 import { IconSearch, IconTrophy } from '../../components/Icons';
 import { ImportButton } from '../../components/ImportDialog';
@@ -53,6 +53,7 @@ export function ListPage() {
       <PageHead title="Hackathons" sub={spaceId ? 'Everything your team is tracking, in one list.' : 'Everything you are tracking, in one list.'}>
         {spaceId && <MineToggle mine={mine} onChange={setMine} count={assignedToMe.length} />}
         {all.length > 0 && <ImportButton />}
+        {all.length > 0 && <AddButton />}
       </PageHead>
       {!all.length ? (
         <EmptyState onAdd={() => openEditor()}>

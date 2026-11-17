@@ -157,6 +157,16 @@ export function PageHead({ title, sub, children }: { title: React.ReactNode; sub
   );
 }
 
+/** Opens the Add hackathon form. Sits in page headers so adding is always one tap away. */
+export function AddButton() {
+  const { openEditor } = useShell();
+  return (
+    <button type="button" className="btn btn-accent" onClick={() => openEditor()}>
+      <IconPlus /> Add hackathon
+    </button>
+  );
+}
+
 export function EmptyState({ onAdd, children }: { onAdd: () => void; children?: React.ReactNode }) {
   return (
     <div className="empty">

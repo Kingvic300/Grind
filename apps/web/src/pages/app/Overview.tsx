@@ -1,4 +1,4 @@
-import { EmptyState, PageHead, useShell } from '../../components/AppShell';
+import { AddButton, EmptyState, PageHead, useShell } from '../../components/AppShell';
 import { Countdown } from '../../components/Bits';
 import { OverviewSkeleton } from '../../components/Loading';
 import { useHackathons, useMe, useNow } from '../../lib/hooks';
@@ -48,7 +48,9 @@ export function OverviewPage() {
 
   return (
     <>
-      <PageHead title="Overview" sub={`${list.length} hackathon${list.length === 1 ? '' : 's'} tracked`} />
+      <PageHead title="Overview" sub={`${list.length} hackathon${list.length === 1 ? '' : 's'} tracked`}>
+        <AddButton />
+      </PageHead>
 
       <section className="tiles" aria-label="Totals">
         <div className="tile"><span>Tracked</span><strong>{list.length}</strong></div>
