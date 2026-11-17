@@ -1,15 +1,15 @@
 /**
  * Reads one hackathon from a link someone pasted, to fill the Add hackathon form.
  * Known sites are read through the same endpoints Discover uses. Any other page is read
- * from its schema.org Event data, its meta tags, and finally the page text. Luma and
- * Eventbrite pages carry full Event data, so they need no site-specific code.
+ * from its schema.org Event data, its meta tags, and finally the page text. Luma,
+ * Eventbrite and Meetup pages carry full Event data, so they need no site-specific code.
  * Rules only, no AI: what is found is a draft the person checks before saving.
  */
 import { classify, formatFromText, formatInText } from './classify';
 import { decodeEntities, plain } from './enrich';
 import { fetchPage, publicUrl, ScanError } from './page-fetch';
 import {
-  clean, devfolioListing, devpostListing, doraListing, get, SOURCES,
+  clean, dayIn, devfolioListing, devpostListing, doraListing, get, https, iso, nextData, prizeText, SOURCES,
   type DevfolioItem, type DevpostItem, type DoraItem, type Listing, type ListingFormat, type RawListing,
 } from './sources';
 
@@ -102,6 +102,64 @@ async function devfolio(url: URL): Promise<ScanResult | null> {
   return fromListing(raw, 'Devfolio', plain(raw.inlineDescription));
 }
 
+type TaikaiStep = { name?: string | null; startDate?: string | null };
+type TaikaiPage = {
+  name?: string;
+  slug?: string;
+  shortDescription?: string | null;
+  prize?: number | null;
+  prizeDecimals?: number | null;
+  prizeCurrency?: { name?: string } | null;
+  organization?: { name?: string; slug?: string } | null;
+  endParticipantRegistrationDate?: string | null;
+  steps?: TaikaiStep[] | null;
+  industries?: { title?: string }[] | null;
+  categories?: { name?: string }[] | null;
+  logoImageFile?: { url?: string } | null;
+};
+
+/**
+ * Taikai event pages carry the challenge in their Next.js data. Its timeline is a list of
+ * named steps with start times only, so the event and submission dates are read from names:
+ * the kick-off or hacking step opens the event, and a "Submission deadline" or the start of
+ * judging closes submissions.
+ */
+async function taikai(url: URL): Promise<ScanResult | null> {
+  if (url.hostname !== 'taikai.network') return null;
+  const [, org, slug] = url.pathname.match(/^\/([^/]+)\/hackathons\/([^/]+)/) ?? [];
+  if (!org || !slug) return null;
+  const page = `https://taikai.network/${org}/hackathons/${slug}`;
+  const html = await (await get(page, { headers: { Accept: 'text/html' } })).text();
+  const c = nextData<{ props?: { pageProps?: { challengeProps?: { challengeBySlug?: TaikaiPage } } } }>(html)?.props?.pageProps?.challengeProps?.challengeBySlug;
+  if (!c?.name) return null;
+
+  const steps = (c.steps ?? []).filter((x): x is { name: string; startDate: string } => Boolean(x?.name && x.startDate));
+  const at = (re: RegExp) => steps.find((x) => re.test(x.name))?.startDate ?? null;
+  const start = at(/kick-?off|hackathon.*start|start.*hackathon|hacking|develop|building/i) ?? steps[0]?.startDate ?? null;
+  const end = steps[steps.length - 1]?.startDate ?? null;
+  const amount = c.prize ? c.prize / 10 ** (c.prizeDecimals ?? 0) : 0;
+  return fromListing(
+    {
+      id: `taikai:${org}/${slug}`,
+      source: 'taikai',
+      name: c.name.trim(),
+      organizer: clean(c.organization?.name),
+      url: page,
+      format: 'ONLINE',
+      location: null,
+      startDate: start ? dayIn(start) : null,
+      endDate: end ? dayIn(end) : null,
+      registrationDeadline: iso(c.endParticipantRegistrationDate) ?? at(/registration (deadline|close)|last call/i),
+      submissionDeadline: at(/submission(s)? (deadline|close|end)/i) ?? at(/^\s*(evaluation|judging|voting)/i),
+      prize: prizeText([{ amount, currency: c.prizeCurrency?.name }]),
+      tags: [...(c.industries ?? []).map((i) => i.title), ...(c.categories ?? []).map((i) => i.name)].filter((t): t is string => Boolean(t)),
+      imageUrl: https(c.logoImageFile?.url),
+    },
+    'Taikai',
+    plain(c.shortDescription),
+  );
+}
+
 // ---------- Any page ----------
 
 type Json = Record<string, unknown>;
@@ -169,6 +227,7 @@ const PLATFORMS: [RegExp, string][] = [
   [/(^|\.)(lu\.ma|luma\.com)$/, 'Luma'],
   [/(^|\.)eventbrite\.[a-z.]+$/, 'Eventbrite'],
   [/(^|\.)meetup\.com$/, 'Meetup'],
+  [/(^|\.)taikai\.network$/, 'Taikai'],
 ];
 const platformOf = (host: string) => PLATFORMS.find(([re]) => re.test(host))?.[1] ?? null;
 
@@ -315,9 +374,10 @@ export function parsePage(html: string, url: URL): ScanResult | null {
 export async function scanLink(input: string, cached: (key: string) => Listing | null): Promise<ScanResult> {
   const url = publicUrl(input);
   const listed = cached(linkKey(url.toString()));
-  if (listed) return fromListing(listed, SOURCES[listed.source].label);
+  // Taikai's own page has the deadlines its listing lacks, so it is always read fresh.
+  if (listed && listed.source !== 'taikai') return fromListing(listed, SOURCES[listed.source].label);
 
-  for (const site of [devpost, dorahacks, devfolio]) {
+  for (const site of [devpost, dorahacks, devfolio, taikai]) {
     try {
       const found = await site(url);
       if (found) return found;

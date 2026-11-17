@@ -223,7 +223,7 @@ export function HackathonDrawer({ hackathon, onClose }: { hackathon: Hackathon |
                     value={scanUrl}
                     inputMode="url"
                     maxLength={500}
-                    placeholder="Paste a Devpost, Luma, Eventbrite or event page link"
+                    placeholder="Paste a Devpost, Luma, Taikai or event page link"
                     autoFocus
                     onChange={(e) => {
                       setScanUrl(e.target.value);
