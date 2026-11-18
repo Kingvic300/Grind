@@ -1,7 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
+import { linkKey } from '../discover/scan';
 import { EventsService } from '../events/events.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SpacesService } from '../spaces/spaces.service';
@@ -79,6 +80,7 @@ export class HackathonsService {
     const data = toData(dto);
     delete data.spaceId;
     this.checkDates(data);
+    await this.checkUnique(this.scope(userId, spaceId), dto.name, dto.url);
     // New entries go to the end of their board column.
     if (dto.position === undefined) {
       const last = await this.prisma.hackathon.aggregate({ where: this.scope(userId, spaceId), _max: { position: true } });
@@ -100,8 +102,9 @@ export class HackathonsService {
   async importMany(userId: string, spaceId: string | null, rows: Record<string, unknown>[]) {
     if (spaceId) await this.spaces.requireMember(userId, spaceId);
     const where = this.scope(userId, spaceId);
-    const existing = await this.prisma.hackathon.findMany({ where, select: { name: true } });
+    const existing = await this.prisma.hackathon.findMany({ where, select: { name: true, url: true } });
     const taken = new Set(existing.map((h) => nameKey(h.name)));
+    const takenLinks = new Set(existing.flatMap((h) => (h.url ? [linkKey(h.url)] : [])));
     const last = await this.prisma.hackathon.aggregate({ where, _max: { position: true } });
     let position = last._max.position ?? 0;
 
@@ -117,7 +120,8 @@ export class HackathonsService {
         continue;
       }
       const key = nameKey(dto.name);
-      if (taken.has(key)) {
+      const link = dto.url ? linkKey(dto.url) : null;
+      if (taken.has(key) || (link && takenLinks.has(link))) {
         skipped.push({ index, name, reason: 'Already in this list.' });
         continue;
       }
@@ -129,6 +133,7 @@ export class HackathonsService {
         continue;
       }
       taken.add(key);
+      if (link) takenLinks.add(link);
       position += 1;
       data.push({ ...(fields as Prisma.HackathonUncheckedCreateInput), name: dto.name.trim(), position, userId, spaceId, updatedById: userId });
     }
@@ -145,6 +150,15 @@ export class HackathonsService {
     const current = await this.findEditable(userId, id);
     const data = toData(dto);
     this.checkDates({ ...current, ...data });
+    const renamed = dto.name !== undefined && nameKey(dto.name) !== nameKey(current.name);
+    const relinked = dto.url !== undefined && (dto.url ? linkKey(dto.url) : null) !== (current.url ? linkKey(current.url) : null);
+    if (renamed || relinked) {
+      await this.checkUnique(
+        { ...this.scope(current.userId, current.spaceId), id: { not: id } },
+        renamed ? dto.name! : null,
+        relinked ? dto.url : null,
+      );
+    }
 
     let added: string[] = [];
     if (dto.assigneeIds) {
@@ -205,6 +219,19 @@ export class HackathonsService {
   private async announce(userId: string, spaceId: string | null) {
     const userIds = spaceId ? await this.spaces.memberIds(spaceId) : [userId];
     this.events.notify(userIds, { type: 'hackathons', spaceId });
+  }
+
+  /**
+   * Stops the same hackathon going into one list twice. A hackathon matches when its name matches
+   * (ignoring case and spacing) or its link matches (ignoring scheme, www, query and trailing slash).
+   */
+  private async checkUnique(where: Prisma.HackathonWhereInput, name: string | null | undefined, url: string | null | undefined) {
+    if (!name && !url) return;
+    const rows = await this.prisma.hackathon.findMany({ where, select: { name: true, url: true } });
+    const key = name ? nameKey(name) : null;
+    const link = url ? linkKey(url) : null;
+    const match = rows.find((h) => (key && nameKey(h.name) === key) || (link && h.url && linkKey(h.url) === link));
+    if (match) throw new ConflictException(`${match.name} is already in this list.`);
   }
 
   private checkDates(data: Record<string, unknown>) {
