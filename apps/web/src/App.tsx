@@ -7,6 +7,7 @@ import { useMe } from './lib/hooks';
 import { BoardPage } from './pages/app/Board';
 import { CalendarPage } from './pages/app/Calendar';
 import { DiscoverPage } from './pages/app/Discover';
+import { ListingDetailPage } from './pages/app/ListingDetail';
 import { ListPage } from './pages/app/List';
 import { OverviewPage } from './pages/app/Overview';
 import { SettingsPage } from './pages/app/Settings';
@@ -56,6 +57,7 @@ export function App() {
             <Route path="board" element={<BoardPage />} />
             <Route path="calendar" element={<CalendarPage />} />
             <Route path="discover" element={<DiscoverPage />} />
+            <Route path="discover/:id" element={<ListingDetailPage />} />
             <Route path="team" element={<TeamPage />} />
             <Route path="sharing" element={<Navigate to="/app/team" replace />} />
             <Route path="settings" element={<SettingsPage />} />

@@ -1,9 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo } from 'react';
+import { Link, useNavigationType } from 'react-router-dom';
 import { PageHead } from '../../components/AppShell';
-import { IconCheck, IconClose, IconPlus, IconSearch } from '../../components/Icons';
-import { CardsSkeleton, Spinner } from '../../components/Loading';
-import { useDiscover, useHackathons, useMe, useNow, useSaveHackathon, useSpaces } from '../../lib/hooks';
+import { IconSearch } from '../../components/Icons';
+import {
+  Badges,
+  DAY,
+  DeadlineTag,
+  ListingActions,
+  ListingImage,
+  listingPath,
+  nextClose,
+  toDay,
+  useAddListing,
+} from '../../components/Listing';
+import { CardsSkeleton } from '../../components/Loading';
+import { useDiscover, useMe, useNow, useSpaces } from '../../lib/hooks';
+import { scrollMemory, useRemembered } from '../../lib/remember';
 import { useSpaceId } from '../../lib/space';
 import { useViewedListings } from '../../lib/viewed';
 import { formatMoment, formatRange } from '../../lib/time';
@@ -17,7 +29,6 @@ import {
   matchesInterests,
   type Category,
   type Format,
-  type HackathonInput,
   type Listing,
   type Source,
 } from '../../lib/types';
@@ -31,7 +42,6 @@ type Sort = 'closing' | 'starting' | 'name';
 type Window = 'any' | '3' | '7' | '30' | '90';
 type Skip = 'show' | 'kind' | 'topics' | 'stacks' | 'sources' | 'format';
 
-const DAY = 24 * 60 * 60 * 1000;
 const WINDOWS: { value: Window; label: string }[] = [
   { value: 'any', label: 'Any time' },
   { value: '3', label: 'In 3 days' },
@@ -40,52 +50,6 @@ const WINDOWS: { value: Window; label: string }[] = [
   { value: '90', label: 'In 3 months' },
 ];
 
-/** Compares links without scheme, "www." and trailing slash, so the same event matches. */
-const linkKey = (url: string | null) =>
-  (url ?? '').toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
-
-const toDay = (day: string | null) => (day ? `${day}T00:00:00.000Z` : null);
-
-type Closing = { label: string; at: number };
-
-/** The next thing that closes: registration, submission, or the event itself. */
-function nextClose(h: Listing, now: number): Closing | null {
-  const options: Closing[] = [];
-  if (h.registrationDeadline) options.push({ label: 'Registration closes', at: Date.parse(h.registrationDeadline) });
-  if (h.submissionDeadline) options.push({ label: 'Submission closes', at: Date.parse(h.submissionDeadline) });
-  if (h.endDate) options.push({ label: 'Ends', at: Date.parse(`${h.endDate}T23:59:59Z`) });
-  return options.filter((o) => o.at > now).sort((a, b) => a.at - b.at)[0] ?? null;
-}
-
-/** "5 hours", "2 days", "3 weeks", "2 months". */
-function relative(ms: number): string {
-  const hours = Math.round(ms / 3_600_000);
-  if (hours < 1) return 'under an hour';
-  if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
-  const days = Math.round(ms / DAY);
-  if (days < 14) return `${days} ${days === 1 ? 'day' : 'days'}`;
-  if (days < 60) return `${Math.round(days / 7)} weeks`;
-  const months = Math.round(days / 30);
-  return `${months} months`;
-}
-
-function toInput(h: Listing): HackathonInput {
-  return {
-    name: h.name.slice(0, 120),
-    organizer: h.organizer?.slice(0, 120) ?? null,
-    url: h.url,
-    format: h.format,
-    location: h.location?.slice(0, 120) ?? null,
-    startDate: toDay(h.startDate),
-    endDate: toDay(h.endDate),
-    registrationDeadline: h.registrationDeadline,
-    submissionDeadline: h.submissionDeadline,
-    status: 'INTERESTED',
-    techStack: h.stack.slice(0, 30),
-    notes: [h.prize, `Found on ${SOURCE_LABEL[h.source]}${h.kind === 'bounty' ? ' (bounty)' : ''}.`].filter(Boolean).join('. '),
-  };
-}
-
 const toggle = <T,>(set: Set<T>, value: T) => {
   const next = new Set(set);
   if (next.has(value)) next.delete(value);
@@ -93,166 +57,22 @@ const toggle = <T,>(set: Set<T>, value: T) => {
   return next;
 };
 
-function DeadlineTag({ closing, now }: { closing: Closing | null; now: number }) {
-  if (!closing) return null;
-  const left = closing.at - now;
-  const tone = left <= 3 * DAY ? 'hot' : left <= 14 * DAY ? 'warm' : 'calm';
-  return (
-    <span className={`due due-${tone}`} title={formatMoment(new Date(closing.at).toISOString())}>
-      {closing.label} in {relative(left)}
-    </span>
-  );
-}
+type CardProps = { h: Listing; added: boolean; onAdd: () => void; busy: boolean; ready: boolean; now: number; match: boolean; viewed: boolean; onView: () => void };
 
-type CardProps = { h: Listing; added: boolean; onAdd: () => void; busy: boolean; now: number; match: boolean; viewed: boolean; onView: () => void };
-
-function Badges({ h, match, viewed }: { h: Listing; match: boolean; viewed: boolean }) {
-  const web3 = h.categories.includes('web3');
-  return (
-    <span className="listing-badges">
-      <span className={`source source-${h.source}`}>{SOURCE_LABEL[h.source]}</span>
-      {h.kind === 'bounty' && <span className="kind kind-bounty">Bounty</span>}
-      <span className={`kind kind-${web3 ? 'web3' : 'web2'}`}>{web3 ? 'Web3' : 'Web2'}</span>
-      {match && <span className="kind kind-match">Matches you</span>}
-      {viewed && <span className="kind kind-viewed">Viewed</span>}
-    </span>
-  );
-}
-
-function ListingImage({ h }: { h: Listing }) {
-  return h.imageUrl ? (
-    <img src={h.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
-  ) : (
-    <span className="listing-img-empty" aria-hidden="true">{h.name.slice(0, 1)}</span>
-  );
-}
-
-function ListingActions({ h, added, onAdd, busy, onView }: Pick<CardProps, 'h' | 'added' | 'onAdd' | 'busy' | 'onView'>) {
-  return (
-    <>
-      {added ? (
-        <span className="listing-added"><IconCheck /> In this list</span>
-      ) : (
-        <button type="button" className="btn btn-ink" onClick={onAdd} disabled={busy}>
-          {busy ? <Spinner /> : <IconPlus />} {busy ? 'Adding' : 'Add to list'}
-        </button>
-      )}
-      <a className="btn btn-quiet" href={h.url} target="_blank" rel="noopener noreferrer" onClick={onView} onAuxClick={onView}>Open site</a>
-    </>
-  );
-}
-
-/** Everything known about a listing, so people can judge it without leaving Grind. */
-function ListingDetails({ h, added, onAdd, busy, now, match, viewed, onView, onClose }: CardProps & { onClose: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  // showModal gives a focus trap and Esc-to-close for free.
-  useEffect(() => {
-    const el = dialog.current;
-    if (el && !el.open) el.showModal();
-  }, []);
-
-  const deadlines = [
-    h.registrationDeadline && { label: 'Registration closes', at: h.registrationDeadline },
-    h.submissionDeadline && { label: 'Submission closes', at: h.submissionDeadline },
-  ].filter((d): d is { label: string; at: string } => Boolean(d));
-  const topics = h.categories.filter((c) => c !== 'web3');
-  const tags = h.tags.filter((t) => !h.stack.some((s) => s.toLowerCase() === t.toLowerCase()));
-
-  return (
-    <dialog
-      ref={dialog}
-      className="modal listing-modal"
-      onClose={onClose}
-      onClick={(e) => e.target === dialog.current && onClose()}
-      aria-labelledby="listing-details-title"
-    >
-      <div className="modal-panel">
-        <header className="drawer-head listing-modal-head">
-          <div className="listing-top">
-            <ListingImage h={h} />
-            <div className="listing-head">
-              <Badges h={h} match={match} viewed={viewed} />
-              <h2 id="listing-details-title">{h.name}</h2>
-              {h.organizer && <p className="listing-org">{h.organizer}</p>}
-            </div>
-          </div>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">
-            <IconClose />
-          </button>
-        </header>
-
-        <div className="drawer-body listing-modal-body">
-          <DeadlineTag closing={nextClose(h, now)} now={now} />
-
-          <dl className="listing-facts">
-            <div>
-              <dt>Dates</dt>
-              <dd>{formatRange(toDay(h.startDate), toDay(h.endDate))}</dd>
-            </div>
-            <div>
-              <dt>Where</dt>
-              <dd>{h.location ?? FORMAT_LABEL[h.format]}</dd>
-            </div>
-            {deadlines.map((d) => (
-              <div key={d.label}>
-                <dt>{d.label}</dt>
-                <dd>{formatMoment(d.at)}</dd>
-              </div>
-            ))}
-            {h.prize && (
-              <div>
-                <dt>Prizes</dt>
-                <dd className="listing-prize">{h.prize}</dd>
-              </div>
-            )}
-          </dl>
-
-          <section className="listing-about" aria-label="About">
-            <h3>About</h3>
-            {h.description ? (
-              <p className="listing-full-desc">{h.description}</p>
-            ) : (
-              <p className="hint">{SOURCE_LABEL[h.source]} does not share a description with Grind. Open the site to read it.</p>
-            )}
-          </section>
-
-          {(topics.length > 0 || h.stack.length > 0 || tags.length > 0) && (
-            <section className="listing-about" aria-label="Topics and tech">
-              <h3>Topics and tech</h3>
-              <span className="chips">
-                {topics.map((c) => <span className="chip chip-topic" key={c}>{CATEGORY_LABEL[c]}</span>)}
-                {h.stack.map((t) => <span className="chip chip-stack" key={`s-${t}`}>{t}</span>)}
-                {tags.map((t) => <span className="chip" key={`t-${t}`}>{t}</span>)}
-              </span>
-            </section>
-          )}
-        </div>
-
-        <footer className="drawer-foot">
-          <div className="drawer-actions">
-            <ListingActions h={h} added={added} onAdd={onAdd} busy={busy} onView={onView} />
-          </div>
-        </footer>
-      </div>
-    </dialog>
-  );
-}
-
-function ListingCard(props: CardProps) {
-  const { h, added, onAdd, busy, now, match, viewed, onView } = props;
-  const [open, setOpen] = useState(false);
-  const openDetails = () => {
-    setOpen(true);
+/** The whole card opens the listing's details page. Buttons inside it keep working on their own. */
+function ListingCard({ h, added, onAdd, busy, ready, now, match, viewed, onView }: CardProps) {
+  const open = () => {
+    scrollMemory.save('discover');
     onView();
   };
   return (
-    <article className={`listing${viewed ? ' is-viewed' : ''}`}>
+    <article className={`listing is-link${viewed ? ' is-viewed' : ''}`}>
       <div className="listing-top">
         <ListingImage h={h} />
         <div className="listing-head">
           <Badges h={h} match={match} viewed={viewed} />
           <h2>
-            <button type="button" className="listing-title" onClick={openDetails}>{h.name}</button>
+            <Link to={listingPath(h.id)} state={{ fromDiscover: true }} className="listing-title" onClick={open}>{h.name}</Link>
           </h2>
           {h.organizer && <p className="listing-org">{h.organizer}</p>}
         </div>
@@ -266,9 +86,6 @@ function ListingCard(props: CardProps) {
         {h.location ?? FORMAT_LABEL[h.format]}
       </p>
       {h.description && <p className="listing-desc">{h.description}</p>}
-      <button type="button" className="link listing-more" onClick={openDetails}>
-        {h.description ? 'Read more' : 'Details'}
-      </button>
       {h.prize && <p className="listing-prize">{h.prize}</p>}
 
       {(h.categories.length > 0 || h.stack.length > 0) && (
@@ -279,9 +96,8 @@ function ListingCard(props: CardProps) {
       )}
 
       <div className="listing-actions">
-        <ListingActions h={h} added={added} onAdd={onAdd} busy={busy} onView={onView} />
+        <ListingActions h={h} added={added} onAdd={onAdd} busy={busy} disabled={!ready} onOpenSite={onView} />
       </div>
-      {open && <ListingDetails {...props} onClose={() => setOpen(false)} />}
     </article>
   );
 }
@@ -320,33 +136,39 @@ export function DiscoverPage() {
   const me = useMe();
   const interests = me.data && hasInterests(me.data) ? me.data : null;
   // "For you" starts on when the user saved interests in Settings.
-  const [forYou, setForYou] = useState<boolean | null>(null);
+  const [forYou, setForYou] = useRemembered<boolean | null>('discover.forYou', null);
   const showForYou = forYou ?? Boolean(interests);
-  const mine = useHackathons();
   const spaces = useSpaces();
   const { spaceId } = useSpaceId();
-  const save = useSaveHackathon();
+  const { isAdded, add, addingId, error, ready } = useAddListing();
   const { viewed, markViewed } = useViewedListings();
   const now = useNow(60_000);
-  const [search, setSearch] = useState('');
-  const [kind, setKind] = useState<Kind>('all');
-  const [show, setShow] = useState<Show>('all');
-  const [topics, setTopics] = useState<Set<Category>>(new Set());
-  const [stacks, setStacks] = useState<Set<string>>(new Set());
-  const [sources, setSources] = useState<Set<Source>>(new Set());
-  const [format, setFormat] = useState<Format | 'ALL'>('ALL');
-  const [within, setWithin] = useState<Window>('any');
-  const [sort, setSort] = useState<Sort>('closing');
-  const [showAllStack, setShowAllStack] = useState(false);
+  const navigation = useNavigationType();
+  // Filters stay put while someone reads a listing's details page and comes back.
+  const [search, setSearch] = useRemembered('discover.search', '');
+  const [kind, setKind] = useRemembered<Kind>('discover.kind', 'all');
+  const [show, setShow] = useRemembered<Show>('discover.show', 'all');
+  const [topics, setTopics] = useRemembered<Set<Category>>('discover.topics', new Set());
+  const [stacks, setStacks] = useRemembered<Set<string>>('discover.stacks', new Set());
+  const [sources, setSources] = useRemembered<Set<Source>>('discover.sources', new Set());
+  const [format, setFormat] = useRemembered<Format | 'ALL'>('discover.format', 'ALL');
+  const [within, setWithin] = useRemembered<Window>('discover.within', 'any');
+  const [sort, setSort] = useRemembered<Sort>('discover.sort', 'closing');
+  const [showAllStack, setShowAllStack] = useRemembered('discover.showAllStack', false);
   // Listings viewed when "Hide viewed" was turned on. A snapshot, so a card opened
-  // afterwards stays put instead of vanishing with its details dialog.
-  const [hidden, setHidden] = useState<Set<string> | null>(null);
-  const [addingId, setAddingId] = useState<string | null>(null);
-  const [error, setError] = useState('');
+  // afterwards stays put instead of vanishing when someone comes back from its page.
+  const [hidden, setHidden] = useRemembered<Set<string> | null>('discover.hidden', null);
 
   const listName = spaceId ? (spaces.data?.find((s) => s.id === spaceId)?.name ?? 'team') : 'My hackathons';
-  const inList = useMemo(() => new Set((mine.data ?? []).map((h) => linkKey(h.url))), [mine.data]);
   const all = useMemo(() => discover.data?.hackathons ?? [], [discover.data]);
+
+  // Back from a details page: return to the card that was opened.
+  const loaded = Boolean(discover.data);
+  useEffect(() => {
+    if (!loaded) return;
+    const y = scrollMemory.take('discover');
+    if (y !== null && navigation === 'POP') window.scrollTo(0, y);
+  }, [loaded, navigation]);
 
   const stackOptions = useMemo(() => {
     const counts = new Map<string, number>();
@@ -392,18 +214,6 @@ export function DiscoverPage() {
     setFormat('ALL');
     setWithin('any');
     setHidden(null);
-  };
-
-  const add = (h: Listing) => {
-    setError('');
-    setAddingId(h.id);
-    save.mutate(
-      { input: toInput(h) },
-      {
-        onError: (e) => setError(`${h.name} was not added. ${e.message}`),
-        onSettled: () => setAddingId(null),
-      },
-    );
   };
 
   if (discover.isPending) return <CardsSkeleton label={`Collecting hackathons from ${SOURCES.length} sites`} />;
@@ -560,7 +370,18 @@ export function DiscoverPage() {
       {rows.length ? (
         <div className="listings">
           {rows.map((h) => (
-            <ListingCard key={h.id} h={h} now={now} match={Boolean(interests && matchesInterests(h, interests))} added={inList.has(linkKey(h.url))} busy={addingId === h.id} onAdd={() => add(h)} viewed={viewed.has(h.id)} onView={() => markViewed(h.id)} />
+            <ListingCard
+              key={h.id}
+              h={h}
+              now={now}
+              match={Boolean(interests && matchesInterests(h, interests))}
+              added={isAdded(h)}
+              busy={addingId === h.id}
+              ready={ready}
+              onAdd={() => add(h)}
+              viewed={viewed.has(h.id)}
+              onView={() => markViewed(h.id)}
+            />
           ))}
         </div>
       ) : (
