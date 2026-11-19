@@ -6,7 +6,7 @@ import type { Hackathon } from '../lib/types';
 import { setClockPreference } from '../lib/time';
 import { Avatar } from './Avatar';
 import { HackathonDrawer } from './HackathonDrawer';
-import { IconBoard, IconCalendar, IconCompass, IconList, IconLogout, IconNote, IconOverview, IconPlus, IconSettings, IconTarget, IconUsers } from './Icons';
+import { IconBoard, IconCalendar, IconClose, IconCompass, IconList, IconLogout, IconMenu, IconNote, IconOverview, IconPlus, IconSettings, IconTarget, IconUsers } from './Icons';
 import { Logo } from './Logo';
 import { NextUp } from './NextUp';
 import { SpaceSwitcher } from './SpaceSwitcher';
@@ -17,17 +17,18 @@ type ShellContext = { openEditor: (hackathon?: Hackathon) => void };
 /** Lets any app page open the add or edit drawer. */
 export const useShell = () => useOutletContext<ShellContext>();
 
-type NavItem = { to: string; label: string; short: string; icon: React.ReactNode; end?: boolean; count?: boolean; due?: boolean; phoneOnly?: boolean };
+type NavItem = { to: string; label: string; short: string; icon: React.ReactNode; end?: boolean; count?: boolean; due?: boolean; tab?: boolean };
 
-// short is the label in the phone tab bar, which scrolls sideways when the items do not fit.
+// On phones only the tab items sit in the bottom bar. The rest open from More.
+// short is the label in the phone tab bar.
 const GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: 'Track',
     items: [
-      { to: '/app', label: 'Overview', short: 'Home', icon: <IconOverview />, end: true },
-      { to: '/app/hackathons', label: 'Hackathons', short: 'List', icon: <IconList />, count: true },
-      { to: '/app/board', label: 'Board', short: 'Board', icon: <IconBoard /> },
-      { to: '/app/calendar', label: 'Calendar', short: 'Calendar', icon: <IconCalendar /> },
+      { to: '/app', label: 'Overview', short: 'Home', icon: <IconOverview />, end: true, tab: true },
+      { to: '/app/hackathons', label: 'Hackathons', short: 'List', icon: <IconList />, count: true, tab: true },
+      { to: '/app/board', label: 'Board', short: 'Board', icon: <IconBoard />, tab: true },
+      { to: '/app/calendar', label: 'Calendar', short: 'Calendar', icon: <IconCalendar />, tab: true },
     ],
   },
   {
@@ -42,10 +43,14 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
     items: [
       { to: '/app/discover', label: 'Discover', short: 'Discover', icon: <IconCompass /> },
       { to: '/app/team', label: 'Team', short: 'Team', icon: <IconUsers /> },
-      // On wide screens Settings lives in the account row instead.
-      { to: '/app/settings', label: 'Settings', short: 'Settings', icon: <IconSettings />, phoneOnly: true },
     ],
   },
+];
+
+// Pages behind the phone More button. On wide screens Settings lives in the account row.
+const MORE: NavItem[] = [
+  ...GROUPS.flatMap((g) => g.items.filter((i) => !i.tab)),
+  { to: '/app/settings', label: 'Settings', short: 'Settings', icon: <IconSettings /> },
 ];
 
 function Shell() {
@@ -81,11 +86,11 @@ function Shell() {
     }
   }, [spaceId, spaces.data, setSpaceId]);
 
-  // On phones the tab bar scrolls sideways. Keep the open page's tab in view.
+  // Phone More sheet. It closes when the page changes.
   const { pathname } = useLocation();
-  useEffect(() => {
-    document.querySelector('.shell-nav a.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  }, [pathname]);
+  const [moreOpen, setMoreOpen] = useState(false);
+  useEffect(() => setMoreOpen(false), [pathname]);
+  const onMorePage = MORE.some((i) => pathname === i.to || pathname.startsWith(`${i.to}/`));
 
   const logout = async () => {
     await actions.logout();
@@ -106,7 +111,7 @@ function Shell() {
             <div className="nav-group" key={group.title}>
               <p className="nav-title">{group.title}</p>
               {group.items.map((item) => (
-                <NavLink key={item.to} to={item.to} end={item.end} aria-label={item.due && dueNotes ? `${item.label}, ${dueNotes} due` : item.label} className={item.phoneOnly ? 'phone-only' : undefined}>
+                <NavLink key={item.to} to={item.to} end={item.end} aria-label={item.due && dueNotes ? `${item.label}, ${dueNotes} due` : item.label} className={item.tab ? undefined : 'nav-extra'}>
                   {item.icon}
                   <span className="nav-long">{item.label}</span>
                   <span className="nav-short" aria-hidden="true">{item.short}</span>
@@ -120,6 +125,17 @@ function Shell() {
               ))}
             </div>
           ))}
+          <button
+            type="button"
+            className={`nav-more${onMorePage ? ' active' : ''}`}
+            onClick={() => setMoreOpen(true)}
+            aria-haspopup="dialog"
+            aria-label={dueNotes ? `More, ${dueNotes} due` : 'More'}
+          >
+            <IconMenu />
+            <span className="nav-short" aria-hidden="true">More</span>
+            {dueNotes > 0 && <span className="nav-due" aria-hidden="true">{dueNotes}</span>}
+          </button>
         </nav>
 
         <NextUp onOpen={openEditor} />
@@ -146,6 +162,8 @@ function Shell() {
         <IconPlus />
       </button>
 
+      {moreOpen && <MoreSheet dueNotes={dueNotes} me={me.data} onLogout={logout} onClose={() => setMoreOpen(false)} />}
+
       {editing && (
         <HackathonDrawer
           key={editing.hackathon?.id ?? 'new'}
@@ -154,6 +172,44 @@ function Shell() {
         />
       )}
     </div>
+  );
+}
+
+/** Phone sheet with the pages that do not fit the tab bar, plus the account. */
+function MoreSheet({ dueNotes, me, onLogout, onClose }: { dueNotes: number; me: ReturnType<typeof useMe>['data']; onLogout: () => void; onClose: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  // showModal gives a focus trap and Esc-to-close for free.
+  useEffect(() => {
+    const el = dialog.current;
+    if (el && !el.open) el.showModal();
+  }, []);
+
+  return (
+    <dialog ref={dialog} className="more-sheet" aria-label="More" onClose={onClose} onClick={(e) => e.target === dialog.current && onClose()}>
+      <div className="more-panel">
+        <div className="more-head">
+          <p className="more-title">More</p>
+          <button type="button" className="side-icon" onClick={onClose} aria-label="Close"><IconClose /></button>
+        </div>
+        <nav className="more-grid" aria-label="More pages">
+          {MORE.map((item) => (
+            <NavLink key={item.to} to={item.to} end={item.end} onClick={onClose} aria-label={item.due && dueNotes ? `${item.label}, ${dueNotes} due` : item.label}>
+              {item.icon}
+              <span>{item.label}</span>
+              {item.due && dueNotes > 0 && <span className="nav-due" aria-hidden="true">{dueNotes}</span>}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="shell-user">
+          <Avatar person={me} />
+          <span className="shell-user-text">
+            <strong>{me?.name}</strong>
+            <span>{me?.email}</span>
+          </span>
+          <button type="button" className="side-icon" onClick={onLogout} aria-label="Log out" title="Log out"><IconLogout /></button>
+        </div>
+      </div>
+    </dialog>
   );
 }
 
