@@ -7,7 +7,9 @@ import { AuthModule } from './auth/auth.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { DiscoverModule } from './discover/discover.module';
 import { EventsModule } from './events/events.module';
+import { GoalsModule } from './goals/goals.module';
 import { HackathonsModule } from './hackathons/hackathons.module';
+import { NotesModule } from './notes/notes.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RemindersModule } from './reminders/reminders.module';
 import { SpacesModule } from './spaces/spaces.module';
@@ -22,6 +24,8 @@ import { SpacesModule } from './spaces/spaces.module';
     EventsModule,
     SpacesModule,
     HackathonsModule,
+    GoalsModule,
+    NotesModule,
     DiscoverModule,
     CalendarModule,
     RemindersModule,

@@ -43,3 +43,5 @@ export const IconTrash = () => <Icon size={15}><path d="M5 7h14M10 7V5h4v2M7 7l1
 export const IconExternal = () => <Icon size={14}><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" /></Icon>;
 export const IconUpload = () => <Icon><path d="M12 15V4M7 9l5-5 5 5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" /></Icon>;
 export const IconSheet = () => <Icon size={28}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M8.5 12h7M8.5 16h7M12 12v7" /></Icon>;
+export const IconTarget = () => <Icon><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="0.8" /></Icon>;
+export const IconNote = () => <Icon><path d="M6 4h9l4 4v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM14 4v5h5M8.5 13h7M8.5 16.5h4.5" /></Icon>;

@@ -66,6 +66,28 @@ None of these sites offer an official public API: Grind reads the endpoints thei
 use (and the schema.org markup on MLH's events page), so a site change can break one
 source. A broken source shows a notice and the others still load.
 
+## Goals
+
+The Goals page sets targets that fill in by themselves: hackathons entered (Registered or
+later), projects submitted (Submitted or Done), wins, prize money, or hackathons built with a
+given tech (past Interested). A goal can also be free text that you tick off by hand. Each goal
+covers this month, quarter or year, next year, chosen dates, or no end date. A hackathon counts
+on the day it ends, or the day it starts, or the day it was added.
+
+- Personal goals are seen only by their owner. They count the private list, plus shared-list
+  hackathons the owner added or is assigned to.
+- Team goals belong to a shared list. Every member sees and edits them, and they count all of
+  that list's hackathons.
+
+The API counts progress (`GET /api/goals`). Overview shows up to three goals still in play.
+
+## Notes
+
+The Notes page holds quick notes: some text, a link, or both, with an optional reminder. Notes
+are personal, or shared with a team when made while a shared list is open. A note whose
+reminder time has passed shows under "Due now" and as a count on the Notes tab until it is
+ticked off.
+
 ## How reminders work
 
 Every 10 minutes the API looks for deadlines that are close and sends each reminder once:
@@ -74,6 +96,9 @@ Every 10 minutes the API looks for deadlines that are close and sends each remin
 - 1 day before a registration closes, while the hackathon is still marked Interested
 
 Reminders for a shared list go to every member who has reminders on.
+
+Note reminders are checked every minute and emailed once when they come due: personal notes to
+their owner, team notes to every member. A reminder more than a day late is not emailed.
 
 Users can turn the emails off in Settings.
 

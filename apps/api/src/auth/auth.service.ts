@@ -97,13 +97,15 @@ export class AuthService {
   /** Everything Grind stores about the user, for the "download my data" button. */
   async export(userId: string) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    const [hackathons, memberships] = await Promise.all([
+    const [hackathons, memberships, goals, notes] = await Promise.all([
       this.prisma.hackathon.findMany({
         where: { OR: [{ userId, spaceId: null }, { space: { members: { some: { userId } } } }] },
         include: { space: { select: { name: true } } },
         orderBy: { createdAt: 'asc' },
       }),
       this.prisma.spaceMember.findMany({ where: { userId }, include: { space: { select: { id: true, name: true, createdAt: true } } } }),
+      this.prisma.goal.findMany({ where: { userId }, include: { space: { select: { name: true } } }, orderBy: { createdAt: 'asc' } }),
+      this.prisma.note.findMany({ where: { userId }, include: { space: { select: { name: true } } }, orderBy: { createdAt: 'asc' } }),
     ]);
     const { avatarUrl: _photo, ...profile } = toPublic(user);
     return {
@@ -111,6 +113,8 @@ export class AuthService {
       profile: { ...profile, hasPhoto: Boolean(user.avatarUrl) },
       sharedLists: memberships.map((m) => ({ ...m.space, role: m.role, joinedAt: m.joinedAt })),
       hackathons: hackathons.map(({ space, userId: _u, updatedById: _e, ...h }) => ({ ...h, list: space?.name ?? 'My hackathons' })),
+      goals: goals.map(({ space, userId: _u, spaceId: _s, ...g }) => ({ ...g, team: space?.name ?? null })),
+      notes: notes.map(({ space, userId: _u, spaceId: _s, ...n }) => ({ ...n, team: space?.name ?? null })),
     };
   }
 
@@ -132,6 +136,8 @@ export class AuthService {
           continue;
         }
         await tx.hackathon.updateMany({ where: { spaceId: m.spaceId, userId }, data: { userId: heir.userId } });
+        await tx.goal.updateMany({ where: { spaceId: m.spaceId, userId }, data: { userId: heir.userId } });
+        await tx.note.updateMany({ where: { spaceId: m.spaceId, userId }, data: { userId: heir.userId } });
         if (m.role === SpaceRole.OWNER && heir.role !== SpaceRole.OWNER) {
           const otherOwner = await tx.spaceMember.count({ where: { spaceId: m.spaceId, role: SpaceRole.OWNER, userId: { not: userId } } });
           if (!otherOwner) {

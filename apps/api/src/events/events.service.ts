@@ -6,7 +6,9 @@ export type LiveEvent =
   | { type: 'hackathons'; spaceId: string | null }
   | { type: 'spaces' }
   | { type: 'activity'; spaceId: string }
-  | { type: 'detail'; hackathonId: string };
+  | { type: 'detail'; hackathonId: string }
+  | { type: 'goals' }
+  | { type: 'notes' };
 
 type Envelope = { userIds: string[]; event: LiveEvent };
 

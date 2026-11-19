@@ -70,6 +70,8 @@ model User {
   tasks         Task[]              @relation("TaskAssignee")
   comments      Comment[]           @relation("CommentAuthor")
   activity      Activity[]          @relation("ActivityActor")
+  goals         Goal[]
+  notes         Note[]
 }
 
 enum SpaceRole {
@@ -86,6 +88,8 @@ model Space {
   members    SpaceMember[]
   hackathons Hackathon[]
   activity   Activity[]
+  goals      Goal[]
+  notes      Note[]
 }
 
 model SpaceMember {
@@ -217,4 +221,62 @@ model Activity {
   createdAt     DateTime   @default(now())
 
   @@index([spaceId, createdAt])
+}
+
+enum GoalKind {
+  ENTER
+  SUBMIT
+  WIN
+  PRIZE
+  TECH
+  CUSTOM
+}
+
+// A target such as "win 3 hackathons in 2027". Null spaceId means a personal goal, which only its
+// owner sees. A goal with a spaceId belongs to that shared list, and every member can edit it.
+model Goal {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spaceId   String?
+  space     Space?    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  kind      GoalKind
+  // Required for CUSTOM goals. Other kinds may use it as their own wording.
+  title     String?
+  // Hackathons to reach, or dollars for PRIZE. Null for CUSTOM goals.
+  target    Int?
+  // The technology a TECH goal counts.
+  tech      String?
+  // Window as calendar days, stored at UTC midnight like hackathon dates. Null means open-ended.
+  startDate DateTime?
+  endDate   DateTime?
+  // Ticked by hand. Only CUSTOM goals use it.
+  done      Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId, spaceId])
+  @@index([spaceId])
+}
+
+// A quick note: some text, a link, or both, with an optional reminder. Personal when spaceId is
+// null, otherwise shared with every member of that list.
+model Note {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spaceId    String?
+  space      Space?    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  body       String?
+  url        String?
+  remindAt   DateTime?
+  // Set once the reminder email went out. Cleared when remindAt changes.
+  remindedAt DateTime?
+  done       Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([userId, spaceId])
+  @@index([spaceId])
+  @@index([remindAt])
 }

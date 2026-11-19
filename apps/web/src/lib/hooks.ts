@@ -2,11 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { API_URL, ApiError, api } from './api';
 import { useSpaceId } from './space';
-import type { Activity, Comment, DiscoverResult, Hackathon, HackathonInput, InvitePreview, ScanResult, Space, Stats, Task, User, UserUpdate } from './types';
+import type { Activity, Comment, DiscoverResult, Goal, GoalInput, Hackathon, HackathonInput, InvitePreview, Note, NoteInput, ScanResult, Space, Stats, Task, User, UserUpdate } from './types';
 
 const ME = ['me'];
 const HACKATHONS = ['hackathons'];
 const SPACES = ['spaces'];
+const GOALS = ['goals'];
+const NOTES = ['notes'];
 
 /** Cache key for one list: the private list, or a shared list. */
 const hackathonsKey = (spaceId: string | null) => [...HACKATHONS, spaceId ?? 'mine'];
@@ -168,7 +170,10 @@ export function useSaveHackathon() {
     onError: (_error, _vars, context) => {
       if (context?.previous) client.setQueryData(key, context.previous);
     },
-    onSettled: () => client.invalidateQueries({ queryKey: key }),
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: GOALS });
+      return client.invalidateQueries({ queryKey: key });
+    },
   });
 }
 
@@ -177,7 +182,10 @@ export function useDeleteHackathon() {
   const { spaceId } = useSpaceId();
   return useMutation({
     mutationFn: (id: string) => api<void>(`/hackathons/${id}`, { method: 'DELETE' }),
-    onSuccess: () => client.invalidateQueries({ queryKey: hackathonsKey(spaceId) }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: GOALS });
+      return client.invalidateQueries({ queryKey: hackathonsKey(spaceId) });
+    },
   });
 }
 
@@ -271,11 +279,60 @@ export function useActivity(spaceId: string) {
 export const fetchOlderActivity = (spaceId: string, before: string) =>
   api<Activity[]>(`/spaces/${spaceId}/activity?before=${encodeURIComponent(before)}`);
 
+/** Personal goals, plus the team goals of the list the app is showing, with their progress. */
+export function useGoals() {
+  const { spaceId } = useSpaceId();
+  return useQuery({
+    queryKey: [...GOALS, spaceId ?? 'mine'],
+    queryFn: () => api<Goal[]>(spaceId ? `/goals?space=${encodeURIComponent(spaceId)}` : '/goals'),
+  });
+}
+
+export function useGoalActions() {
+  const client = useQueryClient();
+  const refresh = () => client.invalidateQueries({ queryKey: GOALS });
+  return {
+    create: (input: GoalInput) => api<Goal>('/goals', { method: 'POST', body: input }).finally(refresh),
+    update: (id: string, input: GoalInput) => api<Goal>(`/goals/${id}`, { method: 'PATCH', body: input }).finally(refresh),
+    remove: (id: string) => api<void>(`/goals/${id}`, { method: 'DELETE' }).finally(refresh),
+  };
+}
+
+/** Personal notes, plus the team notes of the list the app is showing. Newest first. */
+export function useNotes() {
+  const { spaceId } = useSpaceId();
+  return useQuery({
+    queryKey: [...NOTES, spaceId ?? 'mine'],
+    queryFn: () => api<Note[]>(spaceId ? `/notes?space=${encodeURIComponent(spaceId)}` : '/notes'),
+  });
+}
+
+export function useNoteActions() {
+  const client = useQueryClient();
+  const { spaceId } = useSpaceId();
+  const key = [...NOTES, spaceId ?? 'mine'];
+  const refresh = () => client.invalidateQueries({ queryKey: NOTES });
+  return {
+    create: (input: NoteInput) => api<Note>('/notes', { method: 'POST', body: input }).finally(refresh),
+    update: async (id: string, input: NoteInput) => {
+      // Ticks show at once; the refetch puts things right if the server says no.
+      if (input.done !== undefined) client.setQueryData<Note[]>(key, (list) => list?.map((n) => (n.id === id ? { ...n, done: input.done! } : n)));
+      return api<Note>(`/notes/${id}`, { method: 'PATCH', body: input }).finally(refresh);
+    },
+    remove: (id: string) => api<void>(`/notes/${id}`, { method: 'DELETE' }).finally(refresh),
+  };
+}
+
+/** A note whose reminder time has passed and that is not ticked off yet. */
+export const isDue = (n: Note, now: number) => !n.done && n.remindAt !== null && new Date(n.remindAt).getTime() <= now;
+
 type LiveEvent =
   | { type: 'hackathons'; spaceId: string | null }
   | { type: 'spaces' }
   | { type: 'activity'; spaceId: string }
-  | { type: 'detail'; hackathonId: string };
+  | { type: 'detail'; hackathonId: string }
+  | { type: 'goals' }
+  | { type: 'notes' };
 
 /**
  * Listens for changes made by other people (or other tabs) and refetches what changed,
@@ -294,7 +351,12 @@ export function useLiveUpdates(enabled: boolean) {
       } catch {
         return;
       }
-      if (event.type === 'hackathons') void client.invalidateQueries({ queryKey: hackathonsKey(event.spaceId) });
+      if (event.type === 'hackathons') {
+        void client.invalidateQueries({ queryKey: hackathonsKey(event.spaceId) });
+        // Goal progress is counted from hackathons.
+        void client.invalidateQueries({ queryKey: GOALS });
+      } else if (event.type === 'goals') void client.invalidateQueries({ queryKey: GOALS });
+      else if (event.type === 'notes') void client.invalidateQueries({ queryKey: NOTES });
       else if (event.type === 'activity') void client.invalidateQueries({ queryKey: ['activity', event.spaceId] });
       else if (event.type === 'detail') {
         void client.invalidateQueries({ queryKey: ['tasks', event.hackathonId] });
@@ -303,6 +365,8 @@ export function useLiveUpdates(enabled: boolean) {
         // Membership changed: lists may have appeared or gone, so refetch both.
         void client.invalidateQueries({ queryKey: SPACES });
         void client.invalidateQueries({ queryKey: HACKATHONS });
+        void client.invalidateQueries({ queryKey: GOALS });
+        void client.invalidateQueries({ queryKey: NOTES });
       }
     });
     source.onerror = () => {
@@ -317,6 +381,8 @@ export function useLiveUpdates(enabled: boolean) {
       void client.invalidateQueries({ queryKey: ['activity'] });
       void client.invalidateQueries({ queryKey: ['tasks'] });
       void client.invalidateQueries({ queryKey: ['comments'] });
+      void client.invalidateQueries({ queryKey: GOALS });
+      void client.invalidateQueries({ queryKey: NOTES });
     };
     return () => source.close();
   }, [enabled, client]);

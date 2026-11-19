@@ -7,8 +7,10 @@ import { useMe } from './lib/hooks';
 import { BoardPage } from './pages/app/Board';
 import { CalendarPage } from './pages/app/Calendar';
 import { DiscoverPage } from './pages/app/Discover';
+import { GoalsPage } from './pages/app/Goals';
 import { ListingDetailPage } from './pages/app/ListingDetail';
 import { ListPage } from './pages/app/List';
+import { NotesPage } from './pages/app/Notes';
 import { OverviewPage } from './pages/app/Overview';
 import { SettingsPage } from './pages/app/Settings';
 import { TeamPage } from './pages/app/Team';
@@ -56,6 +58,8 @@ export function App() {
             <Route path="hackathons" element={<ListPage />} />
             <Route path="board" element={<BoardPage />} />
             <Route path="calendar" element={<CalendarPage />} />
+            <Route path="goals" element={<GoalsPage />} />
+            <Route path="notes" element={<NotesPage />} />
             <Route path="discover" element={<DiscoverPage />} />
             <Route path="discover/:id" element={<ListingDetailPage />} />
             <Route path="team" element={<TeamPage />} />

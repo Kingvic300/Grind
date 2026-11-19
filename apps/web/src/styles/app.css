@@ -393,7 +393,11 @@ button.nextup:hover { border-color: rgb(242 84 27 / 0.6); }
   .shell-side { position: fixed; inset: auto 0 0 0; top: auto; height: auto; overflow: visible; z-index: 30; padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)); background-image: none; border-top: 1px solid rgb(255 255 255 / 0.08); }
   .shell-side > .logo, .shell-side > .switcher, .shell-add, .shell-user, .nextup, .nav-title { display: none; }
   .shell-top { display: block; margin-bottom: 20px; }
-  .shell-nav { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0; }
+  /* Nine tabs do not fit a phone, so the bar scrolls sideways. Each tab keeps a tappable width. */
+  .shell-nav { grid-auto-flow: column; grid-auto-columns: minmax(58px, 1fr); gap: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; scroll-snap-type: x proximity; }
+  .shell-nav::-webkit-scrollbar { display: none; }
+  .shell-nav a { scroll-snap-align: start; }
+  .nav-due { position: absolute; top: 3px; left: calc(50% + 6px); margin: 0; }
   .nav-group { display: contents; }
   .phone-only { display: flex !important; }
   .nav-count { display: none; }
@@ -713,7 +717,101 @@ button.nextup:hover { border-color: rgb(242 84 27 / 0.6); }
 }
 .empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 
-/* Seven tabs share the bar, so the smallest phones get tighter labels. */
+/* The smallest phones get tighter tab labels. */
 @media (max-width: 360px) {
   .shell-nav a { font-size: 9.5px; letter-spacing: -0.01em; }
+}
+
+/* Small buttons, used inside cards */
+.btn-sm { height: 32px; padding: 0 12px; font-size: 13.5px; border-radius: 8px; gap: 6px; }
+
+/* Nav badge for due reminders */
+.nav-due { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: var(--ink); font-size: 11.5px; font-weight: 700; display: inline-grid; place-items: center; font-variant-numeric: tabular-nums; }
+
+/* Goals */
+.goal-groups { display: grid; gap: 32px; }
+.goal-group { display: grid; gap: 14px; min-width: 0; }
+.goal-group > header h2 { font-size: 20px; }
+.goal-group > header p { color: var(--muted); font-size: 14px; margin-top: 2px; }
+.goal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 14px; }
+.goal { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 18px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.goal-top { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+.goal-text { flex: 1; min-width: 0; }
+.goal-text h3 { font-size: 16.5px; line-height: 1.3; overflow-wrap: anywhere; }
+.goal-text p { font-size: 13.5px; color: var(--muted); margin-top: 3px; }
+.goal-left { color: var(--accent-ink); font-weight: 600; }
+.goal-badge { flex: none; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; padding: 3px 10px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); white-space: nowrap; }
+.goal-bar { height: 10px; border-radius: 5px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
+.goal-bar i { display: block; height: 100%; background: var(--accent); border-radius: 5px; transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.goal-detail { font-size: 13.5px; color: var(--muted); overflow-wrap: anywhere; }
+.goal-detail b { color: var(--ink); font-weight: 600; }
+.goal-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+.goal.is-reached { border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); }
+.goal.is-reached .goal-badge { background: var(--s-done-soft); border-color: transparent; color: var(--ok); }
+.goal.is-reached .goal-bar i { background: var(--ok); }
+.goal.is-missed .goal-badge { color: var(--muted); }
+.goal.is-missed .goal-bar i { background: var(--line-strong); }
+.goal-compact { padding: 14px 16px; gap: 10px; }
+.goal-tick { flex: none; width: 24px; height: 24px; border-radius: 7px; border: 1.5px solid var(--line-strong); background: var(--surface); display: grid; place-items: center; color: #fff; padding: 0; transition: background-color 0.15s, border-color 0.15s; }
+.goal-tick:hover:not(:disabled) { border-color: var(--ink); }
+.goal-tick.is-on { background: var(--ok); border-color: var(--ok); }
+.goal-tick .spinner { color: var(--ink); }
+.overview-goals { margin-bottom: 18px; display: grid; gap: 14px; }
+.panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.panel-head h2 { margin-bottom: 0; }
+
+/* Goal dialog */
+.modal-sm { width: min(560px, calc(100vw - 32px)); }
+.goal-form { display: grid; gap: 18px; padding-top: 20px; align-content: start; }
+.drawer-body.goal-form fieldset { padding-block: 0; border-bottom: 0; gap: 6px; }
+.goal-form legend { font-size: 14px; font-weight: 600; padding: 0; margin-bottom: 6px; }
+.goal-form .optional { font-style: normal; font-weight: 400; color: var(--muted); font-size: 13px; }
+.goal-form .segmented { justify-self: start; }
+.goal-kind-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.goal-kind { position: relative; display: flex; align-items: center; min-height: 44px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 10px; font-size: 14px; font-weight: 500; line-height: 1.25; cursor: pointer; transition: border-color 0.15s, background-color 0.15s; }
+.goal-kind:hover { border-color: var(--ink); }
+.goal-kind input { position: absolute; opacity: 0; pointer-events: none; }
+.goal-kind.is-on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; }
+.goal-kind:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.goal-form .filter-chips { margin-bottom: 4px; }
+.goal-actions .btn, .drawer-actions.goal-actions { justify-content: flex-end; }
+
+/* Chip rows in forms wrap on every screen size, unlike the sideways-scrolling filter rows. */
+.goal-form .filter-chips, .note-remind .filter-chips { flex-wrap: wrap; overflow: visible; margin-inline: 0; padding-inline: 0; max-width: 100%; }
+
+/* Notes */
+.note-form { display: grid; gap: 10px; margin-bottom: 24px; }
+.note-form textarea { min-height: 64px; }
+.note-remind { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.note-at { width: auto; }
+.note-at input { width: auto; min-width: 220px; }
+.note-form-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.note-filter { margin-bottom: 14px; }
+.note-list, .note-due-list { display: grid; gap: 10px; }
+.note-due-list { margin-bottom: 28px; padding: 16px; border-radius: var(--r-lg); background: var(--accent-soft); }
+.note-due-list h2 { font-size: 16px; display: flex; align-items: center; gap: 8px; }
+.note-due-list h2 b { min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--accent); color: var(--ink); font-size: 12px; display: inline-grid; place-items: center; }
+.note { display: flex; align-items: flex-start; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px 16px; min-width: 0; }
+.note.is-due { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.note.is-done .note-body, .note.is-done .note-link span { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--line-strong); }
+.note.is-editing { display: block; padding: 14px; }
+.note-form-edit { display: grid; gap: 10px; }
+.note .goal-tick { margin-top: 1px; }
+.note-main { flex: 1; min-width: 0; display: grid; gap: 6px; }
+.note-due { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent-ink); }
+.note-body { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+.note-link { display: inline-flex; align-items: center; gap: 6px; justify-self: start; max-width: 100%; font-size: 14px; font-weight: 600; color: var(--accent-ink); text-decoration: none; }
+.note-link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-link:hover span { text-decoration: underline; }
+.note-link svg { flex: none; }
+.note-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13px; color: var(--muted); }
+.note-actions { flex: none; display: flex; align-items: center; gap: 4px; }
+.note-empty { padding: 24px 0; }
+@media (max-width: 640px) {
+  .goal-kind-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .note { flex-wrap: wrap; }
+  .note-main { flex-basis: calc(100% - 36px); }
+  .note-actions { width: 100%; justify-content: flex-end; }
+  .note-at, .note-at input { width: 100%; min-width: 0; }
+  .note-form-foot .btn-accent { flex: 1 1 auto; }
 }

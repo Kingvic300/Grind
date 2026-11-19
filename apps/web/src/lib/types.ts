@@ -242,3 +242,45 @@ export function matchesInterests(h: Listing, u: Interests): boolean {
   if (!wantsTopics && !wantsStack) return true;
   return (wantsTopics && u.interestTopics.some((t) => (h.categories as string[]).includes(t))) || (wantsStack && u.interestStack.some((s) => h.stack.includes(s)));
 }
+
+export const GOAL_KINDS = ['ENTER', 'SUBMIT', 'WIN', 'PRIZE', 'TECH', 'CUSTOM'] as const;
+export type GoalKind = (typeof GOAL_KINDS)[number];
+
+/** A target. Null spaceId means a personal goal; otherwise a team goal on that list. */
+export type Goal = {
+  id: string;
+  userId: string;
+  spaceId: string | null;
+  kind: GoalKind;
+  title: string | null;
+  target: number | null;
+  tech: string | null;
+  /** Calendar days at UTC midnight, like hackathon dates. */
+  startDate: string | null;
+  endDate: string | null;
+  done: boolean;
+  createdAt: string;
+  updatedAt: string;
+  /** Hackathons counted so far, or dollars for PRIZE goals. 1 or 0 for CUSTOM goals. */
+  progress: number;
+  counted: { id: string; name: string }[];
+};
+
+export type GoalInput = Partial<Pick<Goal, 'kind' | 'title' | 'target' | 'tech' | 'startDate' | 'endDate' | 'done'>> & { spaceId?: string | null };
+
+/** Some text, a link, or both, with an optional reminder. */
+export type Note = {
+  id: string;
+  userId: string;
+  spaceId: string | null;
+  body: string | null;
+  url: string | null;
+  remindAt: string | null;
+  remindedAt: string | null;
+  done: boolean;
+  createdAt: string;
+  updatedAt: string;
+  user: { id: string; name: string };
+};
+
+export type NoteInput = Partial<Pick<Note, 'body' | 'url' | 'remindAt' | 'done'>> & { spaceId?: string | null };

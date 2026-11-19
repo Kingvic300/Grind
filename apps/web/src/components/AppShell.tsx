@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, NavLink, Outlet, useNavigate, useOutletContext } from 'react-router-dom';
-import { useAuthActions, useHackathons, useLiveUpdates, useMe, useSpaces } from '../lib/hooks';
+import { Link, NavLink, Outlet, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
+import { isDue, useAuthActions, useHackathons, useLiveUpdates, useMe, useNotes, useNow, useSpaces } from '../lib/hooks';
 import { SpaceProvider, useSpaceId } from '../lib/space';
 import type { Hackathon } from '../lib/types';
 import { setClockPreference } from '../lib/time';
 import { Avatar } from './Avatar';
 import { HackathonDrawer } from './HackathonDrawer';
-import { IconBoard, IconCalendar, IconCompass, IconList, IconLogout, IconOverview, IconPlus, IconSettings, IconUsers } from './Icons';
+import { IconBoard, IconCalendar, IconCompass, IconList, IconLogout, IconNote, IconOverview, IconPlus, IconSettings, IconTarget, IconUsers } from './Icons';
 import { Logo } from './Logo';
 import { NextUp } from './NextUp';
 import { SpaceSwitcher } from './SpaceSwitcher';
@@ -17,9 +17,9 @@ type ShellContext = { openEditor: (hackathon?: Hackathon) => void };
 /** Lets any app page open the add or edit drawer. */
 export const useShell = () => useOutletContext<ShellContext>();
 
-type NavItem = { to: string; label: string; short: string; icon: React.ReactNode; end?: boolean; count?: boolean; phoneOnly?: boolean };
+type NavItem = { to: string; label: string; short: string; icon: React.ReactNode; end?: boolean; count?: boolean; due?: boolean; phoneOnly?: boolean };
 
-// short is the label in the phone tab bar, where seven items share the width.
+// short is the label in the phone tab bar, which scrolls sideways when the items do not fit.
 const GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: 'Track',
@@ -28,6 +28,13 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
       { to: '/app/hackathons', label: 'Hackathons', short: 'List', icon: <IconList />, count: true },
       { to: '/app/board', label: 'Board', short: 'Board', icon: <IconBoard /> },
       { to: '/app/calendar', label: 'Calendar', short: 'Calendar', icon: <IconCalendar /> },
+    ],
+  },
+  {
+    title: 'Plan',
+    items: [
+      { to: '/app/goals', label: 'Goals', short: 'Goals', icon: <IconTarget /> },
+      { to: '/app/notes', label: 'Notes', short: 'Notes', icon: <IconNote />, due: true },
     ],
   },
   {
@@ -45,6 +52,9 @@ function Shell() {
   const me = useMe();
   const spaces = useSpaces();
   const hackathons = useHackathons();
+  const notes = useNotes();
+  const now = useNow(30_000);
+  const dueNotes = (notes.data ?? []).filter((n) => isDue(n, now)).length;
   const actions = useAuthActions();
   const navigate = useNavigate();
   const { spaceId, setSpaceId } = useSpaceId();
@@ -71,6 +81,12 @@ function Shell() {
     }
   }, [spaceId, spaces.data, setSpaceId]);
 
+  // On phones the tab bar scrolls sideways. Keep the open page's tab in view.
+  const { pathname } = useLocation();
+  useEffect(() => {
+    document.querySelector('.shell-nav a.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [pathname]);
+
   const logout = async () => {
     await actions.logout();
     navigate('/');
@@ -90,11 +106,16 @@ function Shell() {
             <div className="nav-group" key={group.title}>
               <p className="nav-title">{group.title}</p>
               {group.items.map((item) => (
-                <NavLink key={item.to} to={item.to} end={item.end} aria-label={item.label} className={item.phoneOnly ? 'phone-only' : undefined}>
+                <NavLink key={item.to} to={item.to} end={item.end} aria-label={item.due && dueNotes ? `${item.label}, ${dueNotes} due` : item.label} className={item.phoneOnly ? 'phone-only' : undefined}>
                   {item.icon}
                   <span className="nav-long">{item.label}</span>
                   <span className="nav-short" aria-hidden="true">{item.short}</span>
                   {item.count && hackathons.data && <span className="nav-count">{hackathons.data.length}</span>}
+                  {item.due && dueNotes > 0 && (
+                    <span className="nav-due" aria-hidden="true" title={`${dueNotes} reminder${dueNotes === 1 ? '' : 's'} due`}>
+                      {dueNotes}
+                    </span>
+                  )}
                 </NavLink>
               ))}
             </div>

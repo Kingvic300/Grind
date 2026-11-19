@@ -1,7 +1,10 @@
 import { AddButton, EmptyState, PageHead, useShell } from '../../components/AppShell';
 import { Countdown } from '../../components/Bits';
-import { OverviewSkeleton } from '../../components/Loading';
-import { useHackathons, useMe, useNow } from '../../lib/hooks';
+import { Link } from 'react-router-dom';
+import { Bone, OverviewSkeleton } from '../../components/Loading';
+import { reached, timeLeft } from '../../lib/goals';
+import { useGoals, useHackathons, useMe, useNow } from '../../lib/hooks';
+import { GoalCard } from './Goals';
 import { formatMoment, money } from '../../lib/time';
 import { STATUSES, STATUS_LABEL, type Hackathon } from '../../lib/types';
 
@@ -15,6 +18,39 @@ function upcomingDeadlines(list: Hackathon[], now: number): Deadline[] {
     if (h.submissionDeadline && !['SUBMITTED', 'DONE'].includes(h.status)) out.push({ hackathon: h, kind: 'Submission closes', at: h.submissionDeadline });
   }
   return out.filter((d) => new Date(d.at).getTime() > now).sort((a, b) => a.at.localeCompare(b.at));
+}
+
+/** Goals still in play, closest to their end date first. Reached and ended ones stay on the Goals page. */
+function GoalsPanel() {
+  const query = useGoals();
+  if (query.isPending) {
+    return (
+      <section className="panel overview-goals" aria-busy="true">
+        <Bone className="sk-line" style={{ width: '30%', height: 18 }} />
+        <div className="goal-grid">{[0, 1, 2].map((i) => <Bone key={i} className="sk-row" style={{ height: 62 }} />)}</div>
+      </section>
+    );
+  }
+  if (query.isError) return null;
+  const open = query.data
+    .filter((g) => !reached(g) && !timeLeft(g)?.ended)
+    .sort((a, b) => (a.endDate ?? '9999').localeCompare(b.endDate ?? '9999'))
+    .slice(0, 3);
+  return (
+    <section className="panel overview-goals">
+      <div className="panel-head">
+        <h2>Goals</h2>
+        <Link to="/app/goals" className="text-link">{query.data.length ? 'All goals' : 'Set a goal'}</Link>
+      </div>
+      {open.length ? (
+        <div className="goal-grid">{open.map((g) => <GoalCard key={g.id} goal={g} compact />)}</div>
+      ) : (
+        <p className="panel-empty">
+          {query.data.length ? 'Every goal is reached or ended. Time for a new one.' : 'Aim for a number of hackathons, wins or prize money, and watch it fill in.'}
+        </p>
+      )}
+    </section>
+  );
 }
 
 export function OverviewPage() {
@@ -58,6 +94,8 @@ export function OverviewPage() {
         <div className="tile"><span>Wins</span><strong>{wins}</strong>{submitted > 0 && <em>{Math.round((wins / submitted) * 100)}% of submissions</em>}</div>
         <div className="tile tile-accent"><span>Prize money</span><strong>{money(prize)}</strong></div>
       </section>
+
+      <GoalsPanel />
 
       <div className="overview-grid">
         <section className="panel">
