@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { EventsService } from '../events/events.service';
+import { background } from '../common/background';
 import { PrismaService } from '../prisma/prisma.service';
 import { SpacesService } from '../spaces/spaces.service';
 import { CreateNoteDto, UpdateNoteDto } from './note.dto';
@@ -16,24 +17,28 @@ export class NotesService {
   ) {}
 
   async list(userId: string, spaceId: string | null) {
-    if (spaceId) await this.spaces.requireMember(userId, spaceId);
-    return this.prisma.note.findMany({
-      where: { OR: [{ userId, spaceId: null }, ...(spaceId ? [{ spaceId }] : [])] },
-      orderBy: { createdAt: 'desc' },
-      include: INCLUDE,
-    });
+    // The membership check and the read run together. A non-member gets the error, never the rows.
+    const [, notes] = await Promise.all([
+      spaceId ? this.spaces.requireMember(userId, spaceId) : null,
+      this.prisma.note.findMany({
+        where: { OR: [{ userId, spaceId: null }, ...(spaceId ? [{ spaceId }] : [])] },
+        orderBy: { createdAt: 'desc' },
+        include: INCLUDE,
+      }),
+    ]);
+    return notes;
   }
 
   async create(userId: string, dto: CreateNoteDto) {
     const spaceId = dto.spaceId || null;
     if (spaceId) await this.spaces.requireMember(userId, spaceId);
     const data = this.toData(dto);
-    this.check({ body: null, url: null, ...data });
+    this.check({ title: null, body: null, url: null, ...data });
     const note = await this.prisma.note.create({
       data: { ...(data as Prisma.NoteUncheckedCreateInput), userId, spaceId },
       include: INCLUDE,
     });
-    await this.announce(userId, spaceId);
+    this.announce(userId, spaceId);
     return note;
   }
 
@@ -46,14 +51,14 @@ export class NotesService {
       data.remindedAt = null;
     }
     const note = await this.prisma.note.update({ where: { id }, data: data as Prisma.NoteUncheckedUpdateInput, include: INCLUDE });
-    await this.announce(userId, current.spaceId);
+    this.announce(userId, current.spaceId);
     return note;
   }
 
   async remove(userId: string, id: string) {
     const current = await this.findEditable(userId, id);
     await this.prisma.note.delete({ where: { id } });
-    await this.announce(userId, current.spaceId);
+    this.announce(userId, current.spaceId);
   }
 
   /** Personal notes are editable by their owner. Team notes by every member of the team. */
@@ -69,17 +74,21 @@ export class NotesService {
     const data: Record<string, unknown> = { ...dto };
     delete data.spaceId;
     if (dto.remindAt !== undefined) data.remindAt = dto.remindAt ? new Date(dto.remindAt) : null;
+    if (typeof dto.title === 'string' && !dto.title) data.title = null;
     if (typeof dto.body === 'string' && !dto.body) data.body = null;
     if (typeof dto.url === 'string' && !dto.url) data.url = null;
     return data;
   }
 
   private check(note: Record<string, unknown>) {
-    if (!note.body && !note.url) throw new BadRequestException('Write something or paste a link.');
+    if (!note.title && !note.body && !note.url) throw new BadRequestException('Write something or paste a link.');
   }
 
-  private async announce(userId: string, spaceId: string | null) {
-    const userIds = spaceId ? await this.spaces.memberIds(spaceId) : [userId];
-    this.events.notify(userIds, { type: 'notes' });
+  /** Tells open browsers to refetch notes. Runs after the response. */
+  private announce(userId: string, spaceId: string | null) {
+    background('notes announce', async () => {
+      const userIds = spaceId ? await this.spaces.memberIds(spaceId) : [userId];
+      this.events.notify(userIds, { type: 'notes' });
+    });
   }
 }

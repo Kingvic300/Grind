@@ -273,6 +273,7 @@ export type Note = {
   id: string;
   userId: string;
   spaceId: string | null;
+  title: string | null;
   body: string | null;
   url: string | null;
   remindAt: string | null;
@@ -283,4 +284,4 @@ export type Note = {
   user: { id: string; name: string };
 };
 
-export type NoteInput = Partial<Pick<Note, 'body' | 'url' | 'remindAt' | 'done'>> & { spaceId?: string | null };
+export type NoteInput = Partial<Pick<Note, 'title' | 'body' | 'url' | 'remindAt' | 'done'>> & { spaceId?: string | null };

@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { IsString, Length } from 'class-validator';
 import { AuthGuard } from '../auth/auth.guard';
@@ -17,9 +18,23 @@ export class DiscoverController {
   constructor(private readonly discover: DiscoverService) {}
 
   @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  /**
+   * The listing JSON is large, so it goes out gzipped (compressed once per refresh) with an ETag:
+   * a browser that already has this version gets an empty 304.
+   */
   @Get()
-  list() {
-    return this.discover.list();
+  async list(@Req() req: Request, @Res() res: Response) {
+    const { json, gzip, etag } = await this.discover.payload();
+    res.setHeader('ETag', etag);
+    res.setHeader('Cache-Control', 'private, no-cache');
+    res.setHeader('Vary', 'Accept-Encoding');
+    if (req.headers['if-none-match'] === etag) return res.status(304).end();
+    res.type('application/json');
+    if (/\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''))) {
+      res.setHeader('Content-Encoding', 'gzip');
+      return res.send(gzip);
+    }
+    return res.send(json);
   }
 
   /** Reads a hackathon from a pasted link. Returns a draft for the form; nothing is saved. */

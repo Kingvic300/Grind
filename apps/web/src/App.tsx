@@ -4,16 +4,7 @@ import { AppShell } from './components/AppShell';
 import { MarketingLayout } from './components/MarketingLayout';
 import { AppSkeleton } from './components/Loading';
 import { useMe } from './lib/hooks';
-import { BoardPage } from './pages/app/Board';
-import { CalendarPage } from './pages/app/Calendar';
-import { DiscoverPage } from './pages/app/Discover';
-import { GoalsPage } from './pages/app/Goals';
-import { ListingDetailPage } from './pages/app/ListingDetail';
-import { ListPage } from './pages/app/List';
-import { NotesPage } from './pages/app/Notes';
-import { OverviewPage } from './pages/app/Overview';
-import { SettingsPage } from './pages/app/Settings';
-import { TeamPage } from './pages/app/Team';
+import { Pages } from './pages/app/lazy';
 import { JoinPage } from './pages/Join';
 import { AboutPage } from './pages/marketing/About';
 import { AuthPage } from './pages/marketing/Auth';
@@ -54,17 +45,17 @@ export function App() {
         <Route element={<RequireAuth />}>
           <Route path="join/:code" element={<JoinPage />} />
           <Route path="app" element={<AppShell />}>
-            <Route index element={<OverviewPage />} />
-            <Route path="hackathons" element={<ListPage />} />
-            <Route path="board" element={<BoardPage />} />
-            <Route path="calendar" element={<CalendarPage />} />
-            <Route path="goals" element={<GoalsPage />} />
-            <Route path="notes" element={<NotesPage />} />
-            <Route path="discover" element={<DiscoverPage />} />
-            <Route path="discover/:id" element={<ListingDetailPage />} />
-            <Route path="team" element={<TeamPage />} />
+            <Route index element={<Pages.overview />} />
+            <Route path="hackathons" element={<Pages.list />} />
+            <Route path="board" element={<Pages.board />} />
+            <Route path="calendar" element={<Pages.calendar />} />
+            <Route path="goals" element={<Pages.goals />} />
+            <Route path="notes" element={<Pages.notes />} />
+            <Route path="discover" element={<Pages.discover />} />
+            <Route path="discover/:id" element={<Pages.listing />} />
+            <Route path="team" element={<Pages.team />} />
             <Route path="sharing" element={<Navigate to="/app/team" replace />} />
-            <Route path="settings" element={<SettingsPage />} />
+            <Route path="settings" element={<Pages.settings />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

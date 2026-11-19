@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { type Goal, GoalKind, Prisma, Status } from '@prisma/client';
 import { EventsService } from '../events/events.service';
+import { background } from '../common/background';
 import { PrismaService } from '../prisma/prisma.service';
 import { SpacesService } from '../spaces/spaces.service';
 import { CreateGoalDto, UpdateGoalDto } from './goal.dto';
@@ -60,14 +61,19 @@ export class GoalsService {
   ) {}
 
   async list(userId: string, spaceId: string | null) {
-    if (spaceId) await this.spaces.requireMember(userId, spaceId);
-    const goals = await this.prisma.goal.findMany({
-      where: { OR: [{ userId, spaceId: null }, ...(spaceId ? [{ spaceId }] : [])] },
-      orderBy: { createdAt: 'asc' },
-    });
+    // The membership check and the read run together. A non-member gets the error, never the rows.
+    const [, goals] = await Promise.all([
+      spaceId ? this.spaces.requireMember(userId, spaceId) : null,
+      this.prisma.goal.findMany({
+        where: { OR: [{ userId, spaceId: null }, ...(spaceId ? [{ spaceId }] : [])] },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
     if (!goals.length) return [];
-    const personal = goals.some((g) => !g.spaceId) ? await this.personalHackathons(userId) : [];
-    const team = spaceId && goals.some((g) => g.spaceId) ? await this.teamHackathons(spaceId) : [];
+    const [personal, team] = await Promise.all([
+      goals.some((g) => !g.spaceId) ? this.personalHackathons(userId) : [],
+      spaceId && goals.some((g) => g.spaceId) ? this.teamHackathons(spaceId) : [],
+    ]);
     return goals.map((g) => withProgress(g, g.spaceId ? team : personal));
   }
 
@@ -77,7 +83,7 @@ export class GoalsService {
     const data = this.toData(dto);
     this.check({ kind: dto.kind, title: null, target: null, tech: null, startDate: null, endDate: null, ...data } as Goal);
     const goal = await this.prisma.goal.create({ data: { ...(data as Prisma.GoalUncheckedCreateInput), kind: dto.kind, userId, spaceId } });
-    await this.announce(userId, spaceId);
+    this.announce(userId, spaceId);
     return this.single(userId, goal);
   }
 
@@ -86,14 +92,14 @@ export class GoalsService {
     const data = this.toData(dto);
     this.check({ ...current, ...data } as Goal);
     const goal = await this.prisma.goal.update({ where: { id }, data: data as Prisma.GoalUncheckedUpdateInput });
-    await this.announce(userId, current.spaceId);
+    this.announce(userId, current.spaceId);
     return this.single(userId, goal);
   }
 
   async remove(userId: string, id: string) {
     const current = await this.findEditable(userId, id);
     await this.prisma.goal.delete({ where: { id } });
-    await this.announce(userId, current.spaceId);
+    this.announce(userId, current.spaceId);
   }
 
   private async single(userId: string, goal: Goal) {
@@ -156,8 +162,11 @@ export class GoalsService {
   }
 
   /** Tells every open browser that can see this goal to refetch goals. */
-  private async announce(userId: string, spaceId: string | null) {
-    const userIds = spaceId ? await this.spaces.memberIds(spaceId) : [userId];
-    this.events.notify(userIds, { type: 'goals' });
+  /** Tells open browsers to refetch goals. Runs after the response. */
+  private announce(userId: string, spaceId: string | null) {
+    background('goals announce', async () => {
+      const userIds = spaceId ? await this.spaces.memberIds(spaceId) : [userId];
+      this.events.notify(userIds, { type: 'goals' });
+    });
   }
 }

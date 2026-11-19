@@ -8,6 +8,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
+import { cachedTokenVersion, rememberTokenVersion } from './session-cache';
 
 export const AUTH_COOKIE = 'grind_token';
 
@@ -37,8 +38,14 @@ export class AuthGuard implements CanActivate {
     } catch {
       throw new UnauthorizedException('Your session expired. Log in again.');
     }
-    const user = await this.prisma.user.findUnique({ where: { id: payload.sub }, select: { tokenVersion: true } });
-    if (!user || user.tokenVersion !== (payload.tv ?? 0)) {
+    let tv = cachedTokenVersion(payload.sub);
+    if (tv === undefined) {
+      const user = await this.prisma.user.findUnique({ where: { id: payload.sub }, select: { tokenVersion: true } });
+      if (!user) throw new UnauthorizedException('You were signed out. Log in again.');
+      tv = user.tokenVersion;
+      rememberTokenVersion(payload.sub, tv);
+    }
+    if (tv !== (payload.tv ?? 0)) {
       throw new UnauthorizedException('You were signed out. Log in again.');
     }
     req.userId = payload.sub;

@@ -13,6 +13,9 @@ const withScheme = ({ value }: { value: unknown }) => {
 
 // Optional fields accept null, which clears the stored value.
 export class CreateNoteDto {
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(200, { message: 'Keep the title under 200 characters.' })
+  title?: string | null;
+
   @IsOptional() @Transform(trim) @IsString() @MaxLength(4000, { message: 'Keep the note under 4000 characters.' })
   body?: string | null;
 

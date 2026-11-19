@@ -10,9 +10,9 @@ const PERSON = { email: true, emailReminders: true } as const;
 const escapeHtml = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
 
-/** First line of the note, short enough for a subject line. */
-function headline(body: string | null, url: string | null) {
-  const line = body?.split('\n').find((l) => l.trim())?.trim();
+/** The title, or the first line of the note, short enough for a subject line. */
+function headline(title: string | null, body: string | null, url: string | null) {
+  const line = title?.trim() || body?.split('\n').find((l) => l.trim())?.trim();
   const text = line || (url ? url.replace(/^https?:\/\/(www\.)?/i, '') : 'Your note');
   return text.length > 70 ? `${text.slice(0, 67)}...` : text;
 }
@@ -72,20 +72,23 @@ export class NoteRemindersService {
       const recipients = people.filter((p) => p.emailReminders).map((p) => p.email);
       if (!recipients.length) continue;
 
-      const title = headline(note.body, note.url);
+      const title = headline(note.title, note.body, note.url);
       const where = note.space ? ` in ${note.space.name}` : '';
       const subject = `Reminder: ${title}`;
       const text = [
         `Reminder from your Grind notes${where}.`,
+        note.title ?? '',
         note.body ?? '',
         note.url ? `Link: ${note.url}` : '',
         `Open your notes: ${appUrl}/app/notes`,
         'Turn reminder emails off in Settings.',
       ].filter(Boolean).join('\n\n');
+      const heading = note.title ? escapeHtml(note.title) : '';
       const body = note.body ? escapeHtml(note.body).replace(/\n/g, '<br>') : '';
       const link = note.url ? escapeHtml(note.url) : '';
       const html = `<div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#12141C">
 <p style="font-size:13px;color:#5F6578;margin:0 0 8px">Reminder from your notes${escapeHtml(where)}</p>
+${heading ? `<p style="font-size:19px;font-weight:700;line-height:1.35;margin:0 0 8px">${heading}</p>` : ''}
 ${body ? `<p style="font-size:17px;line-height:1.5;margin:0 0 16px">${body}</p>` : ''}
 ${link ? `<p style="margin:0 0 20px;word-break:break-all"><a href="${link}" style="color:#C2410C">${link}</a></p>` : ''}
 <a href="${appUrl}/app/notes" style="display:inline-block;background:#F2541B;color:#fff;text-decoration:none;font-weight:600;padding:10px 16px;border-radius:10px">Open notes</a>

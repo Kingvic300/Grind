@@ -66,6 +66,7 @@ function NoteForm({ note, onDone }: { note?: Note; onDone?: () => void }) {
   const { spaceId } = useSpaceId();
   const spaces = useSpaces();
   const teamName = spaceId ? spaces.data?.find((s) => s.id === spaceId)?.name : undefined;
+  const [title, setTitle] = useState(note?.title ?? '');
   const [body, setBody] = useState(note?.body ?? '');
   const [url, setUrl] = useState(note?.url ?? '');
   const [quick, setQuick] = useState<Quick>(note?.remindAt ? 'pick' : 'none');
@@ -93,15 +94,16 @@ function NoteForm({ note, onDone }: { note?: Note; onDone?: () => void }) {
   const submit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setError('');
-    if (!body.trim() && !url.trim()) return setError('Write something or paste a link.');
+    if (!title.trim() && !body.trim() && !url.trim()) return setError('Write something or paste a link.');
     const remindAt = quick === 'none' || !at ? null : new Date(at).toISOString();
     if (remindAt && !note && new Date(remindAt).getTime() < Date.now()) return setError('Pick a reminder time in the future.');
-    const input = { body: body.trim() || null, url: url.trim() || null, remindAt };
+    const input = { title: title.trim() || null, body: body.trim() || null, url: url.trim() || null, remindAt };
     setSaving(true);
     try {
       if (note) await actions.update(note.id, input);
       else await actions.create({ ...input, spaceId: team && spaceId ? spaceId : null });
       if (!note) {
+        setTitle('');
         setBody('');
         setUrl('');
         pickQuick('none');
@@ -117,6 +119,18 @@ function NoteForm({ note, onDone }: { note?: Note; onDone?: () => void }) {
   return (
     <form className={note ? 'note-form note-form-edit' : 'panel note-form'} onSubmit={submit}>
       <label className="field">
+        <span className="sr-only">Title</span>
+        <input
+          className="note-title-input"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && (e.metaKey || e.ctrlKey) && void submit()}
+          maxLength={200}
+          placeholder="Title"
+          autoFocus={Boolean(note)}
+        />
+      </label>
+      <label className="field">
         <span className="sr-only">Note</span>
         <textarea
           value={body}
@@ -126,7 +140,6 @@ function NoteForm({ note, onDone }: { note?: Note; onDone?: () => void }) {
           rows={note ? 3 : 2}
           maxLength={4000}
           placeholder="Write a note. Paste a link here and it goes in the link box."
-          autoFocus={Boolean(note)}
         />
       </label>
       <label className="field">
@@ -211,6 +224,7 @@ function NoteCard({ note, now, mine, teamName }: { note: Note; now: number; mine
       </button>
       <div className="note-main">
         {due && <p className="note-due">Reminder due</p>}
+        {note.title && <h3 className="note-title">{note.title}</h3>}
         {note.body && <p className="note-body">{note.body}</p>}
         {note.url && (
           <a className="note-link" href={note.url} target="_blank" rel="noopener noreferrer">

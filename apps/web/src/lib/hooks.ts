@@ -170,9 +170,17 @@ export function useSaveHackathon() {
     onError: (_error, _vars, context) => {
       if (context?.previous) client.setQueryData(key, context.previous);
     },
+    // Put the saved row in the list now, so the form closes without waiting for a refetch.
+    onSuccess: (saved, { id }) => {
+      client.setQueryData<Hackathon[]>(key, (list) =>
+        list && (id ? list.map((h) => (h.id === saved.id ? saved : h)) : [...list, saved]),
+      );
+    },
+    // Refetch in the background. Returning the promise here would hold the save until it ends.
     onSettled: () => {
       void client.invalidateQueries({ queryKey: GOALS });
-      return client.invalidateQueries({ queryKey: key });
+      void client.invalidateQueries({ queryKey: ['stats'] });
+      void client.invalidateQueries({ queryKey: key });
     },
   });
 }
@@ -180,18 +188,23 @@ export function useSaveHackathon() {
 export function useDeleteHackathon() {
   const client = useQueryClient();
   const { spaceId } = useSpaceId();
+  const key = hackathonsKey(spaceId);
   return useMutation({
     mutationFn: (id: string) => api<void>(`/hackathons/${id}`, { method: 'DELETE' }),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
+      client.setQueryData<Hackathon[]>(key, (list) => list?.filter((h) => h.id !== id));
       void client.invalidateQueries({ queryKey: GOALS });
-      return client.invalidateQueries({ queryKey: hackathonsKey(spaceId) });
+      void client.invalidateQueries({ queryKey: ['stats'] });
+      void client.invalidateQueries({ queryKey: key });
     },
   });
 }
 
 /** Open and upcoming hackathons from public sites, plus Superteam Earn bounties. */
+const discoverQuery = { queryKey: ['discover'], queryFn: () => api<DiscoverResult>('/discover'), staleTime: 10 * 60_000 };
+
 export function useDiscover() {
-  return useQuery({ queryKey: ['discover'], queryFn: () => api<DiscoverResult>('/discover'), staleTime: 10 * 60_000 });
+  return useQuery(discoverQuery);
 }
 
 /** Reads a hackathon's details from a pasted link, to fill the Add hackathon form. */
@@ -243,13 +256,21 @@ export function useTaskActions(hackathonId: string) {
   };
   return {
     add: (body: { title: string; assigneeId?: string | null }) =>
-      api<Task>(`/hackathons/${hackathonId}/tasks`, { method: 'POST', body }).finally(refresh),
+      api<Task>(`/hackathons/${hackathonId}/tasks`, { method: 'POST', body })
+        .then((task) => {
+          client.setQueryData<Task[]>(key, (list) => list && [...list, task]);
+          return task;
+        })
+        .finally(refresh),
     update: async (taskId: string, body: Partial<{ title: string; done: boolean; assigneeId: string | null }>) => {
       // Tick boxes at once; the refetch puts things right if the server says no.
       client.setQueryData<Task[]>(key, (list) => list?.map((t) => (t.id === taskId && body.done !== undefined ? { ...t, done: body.done } : t)));
       return api<Task>(`/hackathons/${hackathonId}/tasks/${taskId}`, { method: 'PATCH', body }).finally(refresh);
     },
-    remove: (taskId: string) => api<void>(`/hackathons/${hackathonId}/tasks/${taskId}`, { method: 'DELETE' }).finally(refresh),
+    remove: (taskId: string) =>
+      api<void>(`/hackathons/${hackathonId}/tasks/${taskId}`, { method: 'DELETE' })
+        .then(() => client.setQueryData<Task[]>(key, (list) => list?.filter((t) => t.id !== taskId)))
+        .finally(refresh),
   };
 }
 
@@ -280,21 +301,42 @@ export const fetchOlderActivity = (spaceId: string, before: string) =>
   api<Activity[]>(`/spaces/${spaceId}/activity?before=${encodeURIComponent(before)}`);
 
 /** Personal goals, plus the team goals of the list the app is showing, with their progress. */
+const goalsQuery = (spaceId: string | null) => ({
+  queryKey: [...GOALS, spaceId ?? 'mine'],
+  queryFn: () => api<Goal[]>(spaceId ? `/goals?space=${encodeURIComponent(spaceId)}` : '/goals'),
+});
+
 export function useGoals() {
   const { spaceId } = useSpaceId();
-  return useQuery({
-    queryKey: [...GOALS, spaceId ?? 'mine'],
-    queryFn: () => api<Goal[]>(spaceId ? `/goals?space=${encodeURIComponent(spaceId)}` : '/goals'),
-  });
+  return useQuery(goalsQuery(spaceId));
 }
 
 export function useGoalActions() {
   const client = useQueryClient();
-  const refresh = () => client.invalidateQueries({ queryKey: GOALS });
+  const { spaceId } = useSpaceId();
+  const key = [...GOALS, spaceId ?? 'mine'];
+  // The server's answer goes in the cache at once. The refetch runs in the background, unawaited.
+  const refresh = () => void client.invalidateQueries({ queryKey: GOALS });
+  const put = (change: (list: Goal[]) => Goal[]) => client.setQueryData<Goal[]>(key, (list) => list && change(list));
   return {
-    create: (input: GoalInput) => api<Goal>('/goals', { method: 'POST', body: input }).finally(refresh),
-    update: (id: string, input: GoalInput) => api<Goal>(`/goals/${id}`, { method: 'PATCH', body: input }).finally(refresh),
-    remove: (id: string) => api<void>(`/goals/${id}`, { method: 'DELETE' }).finally(refresh),
+    create: (input: GoalInput) =>
+      api<Goal>('/goals', { method: 'POST', body: input })
+        .then((goal) => {
+          put((list) => [...list, goal]);
+          return goal;
+        })
+        .finally(refresh),
+    update: (id: string, input: GoalInput) =>
+      api<Goal>(`/goals/${id}`, { method: 'PATCH', body: input })
+        .then((goal) => {
+          put((list) => list.map((g) => (g.id === id ? goal : g)));
+          return goal;
+        })
+        .finally(refresh),
+    remove: (id: string) =>
+      api<void>(`/goals/${id}`, { method: 'DELETE' })
+        .then(() => put((list) => list.filter((g) => g.id !== id)))
+        .finally(refresh),
   };
 }
 
@@ -311,15 +353,31 @@ export function useNoteActions() {
   const client = useQueryClient();
   const { spaceId } = useSpaceId();
   const key = [...NOTES, spaceId ?? 'mine'];
-  const refresh = () => client.invalidateQueries({ queryKey: NOTES });
+  // The server's answer goes in the cache at once. The refetch runs in the background, unawaited.
+  const refresh = () => void client.invalidateQueries({ queryKey: NOTES });
+  const put = (change: (list: Note[]) => Note[]) => client.setQueryData<Note[]>(key, (list) => list && change(list));
   return {
-    create: (input: NoteInput) => api<Note>('/notes', { method: 'POST', body: input }).finally(refresh),
+    create: (input: NoteInput) =>
+      api<Note>('/notes', { method: 'POST', body: input })
+        .then((note) => {
+          put((list) => [note, ...list]);
+          return note;
+        })
+        .finally(refresh),
     update: async (id: string, input: NoteInput) => {
       // Ticks show at once; the refetch puts things right if the server says no.
-      if (input.done !== undefined) client.setQueryData<Note[]>(key, (list) => list?.map((n) => (n.id === id ? { ...n, done: input.done! } : n)));
-      return api<Note>(`/notes/${id}`, { method: 'PATCH', body: input }).finally(refresh);
+      if (input.done !== undefined) put((list) => list.map((n) => (n.id === id ? { ...n, done: input.done! } : n)));
+      return api<Note>(`/notes/${id}`, { method: 'PATCH', body: input })
+        .then((note) => {
+          put((list) => list.map((n) => (n.id === id ? note : n)));
+          return note;
+        })
+        .finally(refresh);
     },
-    remove: (id: string) => api<void>(`/notes/${id}`, { method: 'DELETE' }).finally(refresh),
+    remove: (id: string) =>
+      api<void>(`/notes/${id}`, { method: 'DELETE' })
+        .then(() => put((list) => list.filter((n) => n.id !== id)))
+        .finally(refresh),
   };
 }
 
@@ -386,6 +444,32 @@ export function useLiveUpdates(enabled: boolean) {
     };
     return () => source.close();
   }, [enabled, client]);
+}
+
+/**
+ * Loads data for pages the user has not opened yet, once the browser is idle, so the first
+ * visit to Goals or Discover shows data at once. Live updates keep it fresh after that.
+ */
+export function usePrefetchAppData(enabled: boolean) {
+  const client = useQueryClient();
+  const { spaceId } = useSpaceId();
+  useEffect(() => {
+    if (!enabled) return;
+    return whenIdle(() => {
+      void client.prefetchQuery(goalsQuery(spaceId));
+      void client.prefetchQuery(discoverQuery);
+    });
+  }, [enabled, client, spaceId]);
+}
+
+/** Runs a job when the browser is idle. Returns a cancel function. */
+export function whenIdle(job: () => void): () => void {
+  if (typeof window.requestIdleCallback === 'function') {
+    const id = window.requestIdleCallback(job, { timeout: 3000 });
+    return () => window.cancelIdleCallback(id);
+  }
+  const id = window.setTimeout(job, 1200);
+  return () => window.clearTimeout(id);
 }
 
 /** Current time, refreshed every second. Drives the live countdowns. */

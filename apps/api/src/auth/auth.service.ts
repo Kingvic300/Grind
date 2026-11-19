@@ -5,6 +5,7 @@ import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChangePasswordDto, LoginDto, SignupDto, UpdateProfileDto } from './auth.dto';
+import { forgetTokenVersion, rememberTokenVersion } from './session-cache';
 
 /** Everything about the user the web app may see. Never the password hash or token version. */
 const PUBLIC_FIELDS = [
@@ -72,12 +73,14 @@ export class AuthService {
       where: { id: user.id },
       data: { passwordHash: await bcrypt.hash(dto.newPassword, 12), tokenVersion: { increment: 1 } },
     });
+    rememberTokenVersion(updated.id, updated.tokenVersion);
     return this.session(updated);
   }
 
   /** Ends every session except the one making the request. */
   async signOutOthers(userId: string) {
     const updated = await this.prisma.user.update({ where: { id: userId }, data: { tokenVersion: { increment: 1 } } });
+    rememberTokenVersion(updated.id, updated.tokenVersion);
     return this.session(updated);
   }
 
@@ -146,6 +149,7 @@ export class AuthService {
         }
       }
       await tx.user.delete({ where: { id: userId } });
+      forgetTokenVersion(userId);
     });
   }
 

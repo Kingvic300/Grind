@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
-import { isDue, useAuthActions, useHackathons, useLiveUpdates, useMe, useNotes, useNow, useSpaces } from '../lib/hooks';
+import { isDue, useAuthActions, useHackathons, useLiveUpdates, useMe, useNotes, useNow, usePrefetchAppData, useSpaces, whenIdle } from '../lib/hooks';
+import { preloadAppPages } from '../pages/app/lazy';
 import { SpaceProvider, useSpaceId } from '../lib/space';
 import type { Hackathon } from '../lib/types';
 import { setClockPreference } from '../lib/time';
 import { Avatar } from './Avatar';
 import { HackathonDrawer } from './HackathonDrawer';
+import { PanelsSkeleton } from './Loading';
 import { IconBoard, IconCalendar, IconClose, IconCompass, IconList, IconLogout, IconMenu, IconNote, IconOverview, IconPlus, IconSettings, IconTarget, IconUsers } from './Icons';
 import { Logo } from './Logo';
 import { NextUp } from './NextUp';
@@ -66,6 +68,8 @@ function Shell() {
   const [editing, setEditing] = useState<Editing>(null);
   const openEditor = (hackathon?: Hackathon) => setEditing({ hackathon: hackathon ?? null });
   useLiveUpdates(Boolean(me.data));
+  usePrefetchAppData(Boolean(me.data));
+  useEffect(() => whenIdle(preloadAppPages), []);
   if (me.data) setClockPreference(me.data.timeFormat);
 
   // Open the user's default list once per visit, when they picked one in Settings.
@@ -155,7 +159,9 @@ function Shell() {
         <div className="shell-top">
           <SpaceSwitcher tone="light" />
         </div>
-        <Outlet context={{ openEditor } satisfies ShellContext} />
+        <Suspense fallback={<PanelsSkeleton label="Loading page" />}>
+          <Outlet context={{ openEditor } satisfies ShellContext} />
+        </Suspense>
       </main>
 
       <button type="button" className="fab" onClick={() => openEditor()} aria-label="Add hackathon">

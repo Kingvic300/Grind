@@ -4,6 +4,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { linkKey } from '../discover/scan';
 import { EventsService } from '../events/events.service';
+import { background } from '../common/background';
 import { PrismaService } from '../prisma/prisma.service';
 import { SpacesService } from '../spaces/spaces.service';
 import { ActivityService, PERSON } from '../team/activity.service';
@@ -65,12 +66,15 @@ export class HackathonsService {
   ) {}
 
   async list(userId: string, spaceId: string | null) {
-    if (spaceId) await this.spaces.requireMember(userId, spaceId);
-    const rows = await this.prisma.hackathon.findMany({
-      where: spaceId ? { spaceId } : { userId, spaceId: null },
-      orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
-      include: INCLUDE,
-    });
+    // The membership check and the read run together. A non-member gets the error, never the rows.
+    const [, rows] = await Promise.all([
+      spaceId ? this.spaces.requireMember(userId, spaceId) : null,
+      this.prisma.hackathon.findMany({
+        where: spaceId ? { spaceId } : { userId, spaceId: null },
+        orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+        include: INCLUDE,
+      }),
+    ]);
     return rows.map(toPublic);
   }
 
@@ -90,8 +94,10 @@ export class HackathonsService {
       data: { ...(data as Prisma.HackathonUncheckedCreateInput), userId, spaceId, updatedById: userId },
       include: INCLUDE,
     });
-    await this.activity.log(spaceId, userId, 'added', created);
-    await this.announce(userId, spaceId);
+    background('hackathon added', async () => {
+      await this.activity.log(spaceId, userId, 'added', created);
+      await this.announce(userId, spaceId);
+    });
     return toPublic(created);
   }
 
@@ -140,8 +146,10 @@ export class HackathonsService {
 
     if (data.length) {
       await this.prisma.hackathon.createMany({ data });
-      await this.activity.log(spaceId, userId, 'imported', null, String(data.length));
-      await this.announce(userId, spaceId);
+      background('hackathons imported', async () => {
+        await this.activity.log(spaceId, userId, 'imported', null, String(data.length));
+        await this.announce(userId, spaceId);
+      });
     }
     return { created: data.length, skipped };
   }
@@ -178,27 +186,31 @@ export class HackathonsService {
       include: INCLUDE,
     });
 
-    if (current.spaceId) {
-      if (dto.status && dto.status !== current.status) {
-        await this.activity.log(current.spaceId, userId, 'moved', updated, STATUS_LABEL[dto.status]);
+    background('hackathon updated', async () => {
+      if (current.spaceId) {
+        if (dto.status && dto.status !== current.status) {
+          await this.activity.log(current.spaceId, userId, 'moved', updated, STATUS_LABEL[dto.status]);
+        }
+        if (added.length) {
+          const names = updated.assignees.filter((a) => added.includes(a.user.id)).map((a) => a.user.name);
+          await this.activity.log(current.spaceId, userId, 'assigned', updated, names.join(', '));
+        }
+        // Board moves also send position, so only other fields count as an edit.
+        const edited = Object.keys(data).some((k) => k !== 'status' && k !== 'position');
+        if (edited) await this.activity.log(current.spaceId, userId, 'edited', updated);
       }
-      if (added.length) {
-        const names = updated.assignees.filter((a) => added.includes(a.user.id)).map((a) => a.user.name);
-        await this.activity.log(current.spaceId, userId, 'assigned', updated, names.join(', '));
-      }
-      // Board moves also send position, so only other fields count as an edit.
-      const edited = Object.keys(data).some((k) => k !== 'status' && k !== 'position');
-      if (edited) await this.activity.log(current.spaceId, userId, 'edited', updated);
-    }
-    await this.announce(userId, current.spaceId);
+      await this.announce(userId, current.spaceId);
+    });
     return toPublic(updated);
   }
 
   async remove(userId: string, id: string) {
     const current = await this.findEditable(userId, id);
     await this.prisma.hackathon.delete({ where: { id } });
-    await this.activity.log(current.spaceId, userId, 'deleted', null, current.name);
-    await this.announce(userId, current.spaceId);
+    background('hackathon deleted', async () => {
+      await this.activity.log(current.spaceId, userId, 'deleted', null, current.name);
+      await this.announce(userId, current.spaceId);
+    });
   }
 
   /** Private entries are editable by their owner. Team entries by every member of the team. */

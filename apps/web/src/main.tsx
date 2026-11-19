@@ -12,7 +12,9 @@ import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false } },
+  // Live updates refetch whatever other people change, so cached data can stay fresh for a while.
+  // Pages switch from cache instantly instead of refetching on every visit.
+  defaultOptions: { queries: { staleTime: 5 * 60_000, gcTime: 30 * 60_000, refetchOnWindowFocus: false } },
 });
 
 createRoot(document.getElementById('root')!).render(

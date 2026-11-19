@@ -267,6 +267,7 @@ model Note {
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   spaceId    String?
   space      Space?    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  title      String?
   body       String?
   url        String?
   remindAt   DateTime?
@@ -279,4 +280,11 @@ model Note {
   @@index([userId, spaceId])
   @@index([spaceId])
   @@index([remindAt])
+}
+
+/// The last Discover result. A restarted server serves it at once instead of waiting for every source.
+model DiscoverSnapshot {
+  id        String   @id
+  data      Json
+  fetchedAt DateTime
 }

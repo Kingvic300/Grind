@@ -31,7 +31,7 @@ export function nextClose(h: Listing, now: number): Closing | null {
 }
 
 /** "5 hours", "2 days", "3 weeks", "2 months". */
-function relative(ms: number): string {
+export function relative(ms: number): string {
   const hours = Math.round(ms / 3_600_000);
   if (hours < 1) return 'under an hour';
   if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
@@ -120,8 +120,10 @@ export function Badges({ h, match, viewed }: { h: Listing; match: boolean; viewe
 }
 
 export function ListingImage({ h }: { h: Listing }) {
-  return h.imageUrl ? (
-    <img src={h.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
+  // Some sources serve broken or blocked images. Show the initial instead of an empty box.
+  const [broken, setBroken] = useState(false);
+  return h.imageUrl && !broken ? (
+    <img src={h.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setBroken(true)} />
   ) : (
     <span className="listing-img-empty" aria-hidden="true">{h.name.slice(0, 1)}</span>
   );
